@@ -23,8 +23,6 @@ export default async function FeedPage() {
     userProfile = profile as Profile | null;
   }
 
-  const isAdmin = userProfile?.talents?.includes("Admin") ?? false;
-
   // Fetch feed items - including system scenarios for onboarding
   const { data: feedItems, error } = await supabase
     .from("feed_items")
@@ -69,7 +67,6 @@ export default async function FeedPage() {
         <FeedContainer 
           initialItems={filteredItems as FeedItem[]} 
           userProfile={userProfile}
-          isAdmin={isAdmin}
         />
       </div>
     </main>

@@ -8,17 +8,16 @@ import { LogisticsCard } from './logistics-card'
 import { BuildCard } from './build-card'
 import { DiscussionCard } from './discussion-card'
 import type { FeedItem, Profile, Talent } from '@/lib/types/database'
-import { Loader2, RefreshCw, ChevronDown, ChevronUp, LayoutGrid, LayoutList } from 'lucide-react'
+import { Loader2, RefreshCw, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface FeedContainerProps {
   initialItems: FeedItem[]
   userProfile?: Profile | null
   isOnboarding?: boolean
-  isAdmin?: boolean
 }
 
-export function FeedContainer({ initialItems, userProfile, isOnboarding = false, isAdmin = false }: FeedContainerProps) {
+export function FeedContainer({ initialItems, userProfile, isOnboarding = false }: FeedContainerProps) {
   const [items, setItems] = useState<FeedItem[]>(initialItems)
   const [isLoading, setIsLoading] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -177,7 +176,6 @@ export function FeedContainer({ initialItems, userProfile, isOnboarding = false,
             item={item}
             onLike={handleScenarioLike}
             onDiscard={handleScenarioDiscard}
-            isAdmin={isAdmin}
           />
         )
       case 'product':
@@ -249,49 +247,16 @@ export function FeedContainer({ initialItems, userProfile, isOnboarding = false,
 
   return (
     <div className="space-y-4">
-      {/* View toggle header */}
-      {displayItems.length > 1 && (
-        <div className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-2.5">
-          <p className="text-sm text-muted-foreground">
-            {showAll ? (
-              <>Showing all <span className="font-medium text-foreground">{displayItems.length}</span> items</>
-            ) : (
-              <>Showing <span className="font-medium text-foreground">1</span> of <span className="font-medium text-foreground">{displayItems.length}</span> items</>
-            )}
-          </p>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowAll(prev => !prev)}
-            className="gap-1.5 text-primary hover:text-primary/80"
-          >
-            {showAll ? (
-              <>
-                <LayoutList className="h-4 w-4" />
-                Collapse
-                <ChevronUp className="h-3.5 w-3.5" />
-              </>
-            ) : (
-              <>
-                <LayoutGrid className="h-4 w-4" />
-                Show all ({hiddenCount} more)
-                <ChevronDown className="h-3.5 w-3.5" />
-              </>
-            )}
-          </Button>
-        </div>
-      )}
-
       {visibleItems.map(renderFeedItem)}
       
-      {/* Expand prompt after the single visible card */}
+      {/* Subtle expand prompt below the single visible card */}
       {!showAll && hiddenCount > 0 && (
         <button
           onClick={() => setShowAll(true)}
-          className="group flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-4 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+          className="flex w-full items-center justify-center gap-1.5 py-2 text-xs text-muted-foreground transition-colors hover:text-primary"
         >
-          <ChevronDown className="h-4 w-4 transition-transform group-hover:translate-y-0.5" />
-          View {hiddenCount} more {hiddenCount === 1 ? 'item' : 'items'}
+          <ChevronDown className="h-3.5 w-3.5" />
+          {hiddenCount} more {hiddenCount === 1 ? 'item' : 'items'}
         </button>
       )}
 
