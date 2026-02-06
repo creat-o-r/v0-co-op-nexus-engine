@@ -33,6 +33,7 @@ export function DoneScenarioCard({ item, onEdit, currentUserId }: DoneScenarioCa
         item={item}
         currentUserId={currentUserId}
         onFlip={() => setIsFlipped(false)}
+        onEdit={onEdit}
       />
     )
   }

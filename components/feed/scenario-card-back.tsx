@@ -1,10 +1,12 @@
 'use client'
 
+import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, ArrowLeft, Link2, MapPin, Package, Hammer, Truck } from 'lucide-react'
+import { Loader2, RotateCcw, Link2, MapPin, Package, Hammer, Truck, MessageCircle, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from '@/lib/utils/date'
+import { CommentThread } from './comment-thread'
 import type { DoneItem } from './done-scenario-card'
 import useSWR from 'swr'
 
@@ -19,6 +21,7 @@ interface ScenarioCardBackProps {
   item: DoneItem
   currentUserId?: string
   onFlip: () => void
+  onEdit: (item: DoneItem) => void
 }
 
 const voteFetcher = async (url: string) => {
@@ -27,7 +30,9 @@ const voteFetcher = async (url: string) => {
   return res.json() as Promise<VoteData>
 }
 
-export function ScenarioCardBack({ item, currentUserId, onFlip }: ScenarioCardBackProps) {
+export function ScenarioCardBack({ item, currentUserId, onFlip, onEdit }: ScenarioCardBackProps) {
+  const [showComments, setShowComments] = useState(false)
+  const [commentsCount, setCommentsCount] = useState(item.comments_count)
   const { data: votes, isLoading: votesLoading } = useSWR<VoteData>(
     `/api/scenarios/votes?feedItemId=${item.id}`,
     voteFetcher,
@@ -61,13 +66,6 @@ export function ScenarioCardBack({ item, currentUserId, onFlip }: ScenarioCardBa
         {/* Question context + back button */}
         <div>
           <div className="flex items-center gap-2 text-xs mb-1.5">
-            <button
-              onClick={onFlip}
-              className="flex items-center gap-1 px-2 py-0.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-              aria-label="Back to front"
-            >
-              <ArrowLeft className="h-3 w-3" />
-            </button>
             <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full font-medium">
               Scenario
             </span>
@@ -185,6 +183,54 @@ export function ScenarioCardBack({ item, currentUserId, onFlip }: ScenarioCardBa
           </div>
         )}
 
+        {/* Action footer -- same pattern as front */}
+        <div className="flex items-center justify-between pt-2.5 border-t border-border">
+          <div className="flex items-center gap-1">
+            {/* Chat toggle */}
+            <button
+              onClick={() => setShowComments(!showComments)}
+              className={cn(
+                'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-colors',
+                showComments
+                  ? 'text-primary bg-primary/10'
+                  : 'text-muted-foreground hover:bg-muted'
+              )}
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              <span>{commentsCount > 0 ? commentsCount : ''}</span>
+            </button>
+
+            {/* Flip back to front */}
+            <button
+              onClick={onFlip}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs text-muted-foreground hover:bg-muted transition-colors"
+              aria-label="Back to front"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          {/* Edit */}
+          <button
+            onClick={() => onEdit(item)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs text-muted-foreground hover:bg-muted transition-colors"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            <span>{item._responseType === 'discard' ? 'Answer' : 'Edit'}</span>
+          </button>
+        </div>
+
+        {/* Comment thread */}
+        {showComments && (
+          <div className="pt-3">
+            <CommentThread
+              feedItemId={item.id}
+              currentUserId={currentUserId}
+              commentsCount={commentsCount}
+              onCountChange={setCommentsCount}
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
   )
