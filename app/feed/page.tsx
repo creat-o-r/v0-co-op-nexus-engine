@@ -1,11 +1,21 @@
 import { createClient } from "@/lib/supabase/server";
 import { FeedContainer } from "@/components/feed/feed-container";
-import type { FeedItem, Profile } from "@/lib/types/database";
+import type { FeedItem, FeedType, Profile } from "@/lib/types/database";
 
 export const metadata = {
   title: "Action Feed | Co-Op Nexus",
   description: "Your personalized action feed - scenarios, products, logistics, and community tasks",
 };
+
+// Feed type labels for the filter chips
+const FEED_FILTERS: { type: FeedType | "all"; label: string }[] = [
+  { type: "all", label: "All" },
+  { type: "scenario", label: "Scenarios" },
+  { type: "product", label: "Products" },
+  { type: "build", label: "Tasks" },
+  { type: "logistics", label: "Logistics" },
+  { type: "discussion", label: "Discussion" },
+];
 
 export default async function FeedPage() {
   const supabase = await createClient();
@@ -23,7 +33,7 @@ export default async function FeedPage() {
     userProfile = profile as Profile | null;
   }
 
-  // Fetch feed items - including system scenarios for onboarding
+  // Fetch feed items
   const { data: feedItems, error } = await supabase
     .from("feed_items")
     .select("*")
@@ -54,29 +64,13 @@ export default async function FeedPage() {
     return true;
   });
 
-  const displayName = userProfile?.display_name;
-  const pendingCount = filteredItems.filter((i: FeedItem) => i.feed_type === "scenario").length;
-
   return (
     <main className="min-h-screen pb-20 md:pb-8">
-      <div className="mx-auto max-w-2xl px-4 pt-4 pb-6">
-        {/* Compact header row */}
-        <div className="mb-4 flex items-baseline justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="truncate text-lg font-semibold text-foreground">
-              {displayName ? `Hey ${displayName}` : "Action Feed"}
-            </h1>
-          </div>
-          {pendingCount > 0 && (
-            <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-              {pendingCount} pending
-            </span>
-          )}
-        </div>
-        
+      <div className="mx-auto max-w-2xl px-4 pt-3 pb-6">
         <FeedContainer 
           initialItems={filteredItems as FeedItem[]} 
           userProfile={userProfile}
+          feedFilters={FEED_FILTERS}
         />
       </div>
     </main>

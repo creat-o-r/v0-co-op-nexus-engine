@@ -1,38 +1,44 @@
 'use client'
 
-import { useCallback, useState, useTransition } from 'react'
+import { useCallback, useState, useTransition, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ScenarioCard } from './scenario-card'
 import { ProductCard } from './product-card'
 import { LogisticsCard } from './logistics-card'
 import { BuildCard } from './build-card'
 import { DiscussionCard } from './discussion-card'
-import type { FeedItem, Profile, Talent } from '@/lib/types/database'
-import { Loader2, RefreshCw, ChevronDown, Pin } from 'lucide-react'
+import type { FeedItem, FeedType, Profile, Talent } from '@/lib/types/database'
+import { Loader2, RefreshCw, Pin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useRef } from 'react'
+import { cn } from '@/lib/utils'
+
+interface FeedFilter {
+  type: FeedType | 'all'
+  label: string
+}
 
 interface FeedContainerProps {
   initialItems: FeedItem[]
   userProfile?: Profile | null
   isOnboarding?: boolean
+  feedFilters?: FeedFilter[]
 }
 
-const EXPAND_THRESHOLD = 3 // After this many manual expansions, offer to keep open
+const EXPAND_THRESHOLD = 3
 
-export function FeedContainer({ initialItems, userProfile, isOnboarding = false }: FeedContainerProps) {
+export function FeedContainer({ initialItems, userProfile, isOnboarding = false, feedFilters }: FeedContainerProps) {
   const [items, setItems] = useState<FeedItem[]>(initialItems)
   const [isLoading, setIsLoading] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [showAll, setShowAll] = useState(false)
-  const [pinned, setPinned] = useState(false) // user chose to keep expanded
+  const [pinned, setPinned] = useState(false)
+  const [activeFilter, setActiveFilter] = useState<FeedType | 'all'>('all')
   const expandCount = useRef(0)
   const [showPinPrompt, setShowPinPrompt] = useState(false)
   const supabase = createClient()
 
   const userTalents = (userProfile?.talents || []) as Talent[]
 
-  // Expand handler with persistence tracking
   const handleExpand = useCallback(() => {
     setShowAll(true)
     expandCount.current += 1
@@ -41,7 +47,6 @@ export function FeedContainer({ initialItems, userProfile, isOnboarding = false 
     }
   }, [pinned])
 
-  // Auto-collapse after an item is answered (unless pinned)
   const collapseIfNeeded = useCallback(() => {
     if (!pinned) {
       setShowAll(false)
@@ -248,86 +253,119 @@ export function FeedContainer({ initialItems, userProfile, isOnboarding = false 
     }
   }
 
-  // For onboarding, filter to show only unanswered scenarios
+  // Apply type filter, then onboarding filter
+  const typeFiltered = activeFilter === 'all'
+    ? items
+    : items.filter(i => i.feed_type === activeFilter)
+  
   const displayItems = isOnboarding 
-    ? items.filter(i => i.feed_type === 'scenario')
-    : items
+    ? typeFiltered.filter(i => i.feed_type === 'scenario')
+    : typeFiltered
 
-  // Default: show only the first card; expand to show all
+  // Show one card or all
   const visibleItems = showAll ? displayItems : displayItems.slice(0, 1)
-  const hiddenCount = displayItems.length - 1
+
+  // Progress: how many have been answered from the original set
+  const answeredCount = initialItems.length - items.length
+  const totalCount = initialItems.length
+
+  // Count items per feed type for filter badges
+  const countByType = (type: FeedType) => items.filter(i => i.feed_type === type).length
 
   if (displayItems.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-          <RefreshCw className="h-8 w-8 text-primary" />
+      <div className="space-y-3">
+        {/* Filter chips even on empty state */}
+        {feedFilters && feedFilters.length > 0 && (
+          <FilterChips
+            filters={feedFilters}
+            active={activeFilter}
+            onSelect={setActiveFilter}
+            countByType={countByType}
+            totalCount={items.length}
+          />
+        )}
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+            <RefreshCw className="h-6 w-6 text-primary" />
+          </div>
+          <h3 className="font-semibold text-foreground mb-1">
+            {isOnboarding ? 'All caught up!' : 'Nothing here yet'}
+          </h3>
+          <p className="text-sm text-muted-foreground max-w-xs">
+            {isOnboarding 
+              ? 'Head to your feed to see what\'s happening!'
+              : 'Check back later for new items.'}
+          </p>
         </div>
-        <h3 className="font-semibold text-lg text-foreground mb-2">
-          {isOnboarding ? 'All caught up!' : 'No items in your feed'}
-        </h3>
-        <p className="text-muted-foreground max-w-sm">
-          {isOnboarding 
-            ? 'You\'ve completed all the scenario questions. Head to your feed to see what\'s happening in your community!'
-            : 'Check back later for new posts, products, and community tasks.'}
-        </p>
       </div>
     )
   }
 
-  // Answered count = initial total minus remaining
-  const answeredCount = initialItems.length - displayItems.length
-  const totalCount = initialItems.length
-
   return (
     <div className="space-y-3">
-      {visibleItems.map(renderFeedItem)}
-
-      {/* Counter + expand — always below the card(s) */}
-      {displayItems.length > 1 && (
-        <div className="flex items-center justify-between px-1">
-          <span className="text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">{answeredCount}</span>
-            {' / '}
-            <span className="font-medium text-foreground">{totalCount}</span>
-            {' done'}
-          </span>
-
-          {!showAll && hiddenCount > 0 && (
-            <button
-              onClick={handleExpand}
-              className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-primary"
-            >
-              {hiddenCount} more
-              <ChevronDown className="h-3 w-3" />
-            </button>
-          )}
-
-          {pinned && showAll && (
-            <span className="flex items-center gap-1 text-xs text-primary">
-              <Pin className="h-3 w-3" />
-              Pinned
-            </span>
-          )}
-        </div>
+      {/* Feed type filter chips */}
+      {feedFilters && feedFilters.length > 0 && (
+        <FilterChips
+          filters={feedFilters}
+          active={activeFilter}
+          onSelect={setActiveFilter}
+          countByType={countByType}
+          totalCount={items.length}
+        />
       )}
 
-      {/* Single-item fallback: still show counter */}
-      {displayItems.length === 1 && totalCount > 1 && (
-        <div className="px-1">
-          <span className="text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">{answeredCount}</span>
-            {' / '}
-            <span className="font-medium text-foreground">{totalCount}</span>
-            {' done'}
-          </span>
+      {visibleItems.map(renderFeedItem)}
+
+      {/* Progress counter below cards -- fully tappable */}
+      {totalCount > 1 && (
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            {/* Tap current count to collapse to single */}
+            <button
+              onClick={() => setShowAll(false)}
+              className={cn(
+                'font-medium transition-colors',
+                !showAll ? 'text-primary' : 'text-foreground hover:text-primary'
+              )}
+              title="Show current card"
+            >
+              {answeredCount + 1}
+            </button>
+            <span>/</span>
+            {/* Tap total to show all */}
+            <button
+              onClick={handleExpand}
+              className={cn(
+                'font-medium transition-colors',
+                showAll ? 'text-primary' : 'text-foreground hover:text-primary'
+              )}
+              title="Show all"
+            >
+              {totalCount}
+            </button>
+
+            {pinned && (
+              <Pin className="h-3 w-3 ml-1 text-primary" />
+            )}
+          </div>
+
+          {/* Show all / load more — simple language */}
+          {!showAll && displayItems.length > 1 && (
+            <button
+              onClick={handleExpand}
+              className="text-xs text-muted-foreground transition-colors hover:text-primary"
+            >
+              Show all
+            </button>
+          )}
         </div>
       )}
 
       {/* Pin prompt after repeated expansions */}
       {showPinPrompt && !pinned && (
         <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
-          <span className="text-xs text-foreground">Keep feed expanded?</span>
+          <span className="text-xs text-foreground">Keep expanded?</span>
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -335,30 +373,30 @@ export function FeedContainer({ initialItems, userProfile, isOnboarding = false 
               className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
               onClick={() => setShowPinPrompt(false)}
             >
-              Dismiss
+              No
             </Button>
             <Button
               size="sm"
               className="h-6 px-2 text-xs bg-primary text-primary-foreground"
               onClick={handlePin}
             >
-              <Pin className="h-3 w-3 mr-1" />
-              Keep open
+              Yes
             </Button>
           </div>
         </div>
       )}
 
       {showAll && !isOnboarding && items.length >= 10 && (
-        <div className="flex justify-center pt-4">
+        <div className="flex justify-center pt-2">
           <Button
             variant="outline"
+            size="sm"
             onClick={loadMoreItems}
             disabled={isLoading}
           >
             {isLoading ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
                 Loading...
               </>
             ) : (
@@ -367,6 +405,49 @@ export function FeedContainer({ initialItems, userProfile, isOnboarding = false 
           </Button>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Filter chips component ──────────────────────────────────────────
+interface FilterChipsProps {
+  filters: FeedFilter[]
+  active: FeedType | 'all'
+  onSelect: (type: FeedType | 'all') => void
+  countByType: (type: FeedType) => number
+  totalCount: number
+}
+
+function FilterChips({ filters, active, onSelect, countByType, totalCount }: FilterChipsProps) {
+  return (
+    <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+      {filters.map(({ type, label }) => {
+        const count = type === 'all' ? totalCount : countByType(type as FeedType)
+        const isActive = active === type
+        if (type !== 'all' && count === 0) return null
+        return (
+          <button
+            key={type}
+            onClick={() => onSelect(type)}
+            className={cn(
+              'shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors',
+              isActive
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+            )}
+          >
+            {label}
+            {count > 0 && (
+              <span className={cn(
+                'ml-1.5 tabular-nums',
+                isActive ? 'text-primary-foreground/70' : 'text-muted-foreground/60'
+              )}>
+                {count}
+              </span>
+            )}
+          </button>
+        )
+      })}
     </div>
   )
 }
