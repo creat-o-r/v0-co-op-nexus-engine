@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Check, X, ChevronRight, PenLine, MessageCircle, BarChart3 } from 'lucide-react'
+import { Check, X, ChevronRight, PenLine, MessageCircle, BarChart3, RotateCcw } from 'lucide-react'
 import type { FeedItem } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
 import { CommentThread } from './comment-thread'
@@ -114,8 +114,9 @@ export function ScenarioCard({ item, onLike, onDiscard, currentUserId, initialSe
             <button
               onClick={() => setIsFlipped(false)}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs text-muted-foreground hover:bg-muted transition-colors"
+              aria-label="Back to front"
             >
-              <BarChart3 className="h-3.5 w-3.5" />
+              <RotateCcw className="h-3.5 w-3.5" />
             </button>
           </div>
 

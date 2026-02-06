@@ -15,31 +15,38 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "feedItemId is required" }, { status: 400 })
     }
 
-    const { data, error } = await supabase
+    // Fetch comments
+    const { data: interactions, error } = await supabase
       .from("feed_interactions")
-      .select(`
-        id,
-        user_id,
-        feed_item_id,
-        interaction_type,
-        comment_text,
-        created_at,
-        profile:profiles!feed_interactions_user_id_fkey(
-          id,
-          display_name,
-          neighborhood_hub,
-          avatar_url
-        )
-      `)
+      .select("id, user_id, feed_item_id, interaction_type, comment_text, created_at")
       .eq("feed_item_id", feedItemId)
       .eq("interaction_type", "comment")
       .order("created_at", { ascending: true })
 
     if (error) {
+      console.log("[v0] Comments GET error:", error.message)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ comments: data })
+    if (!interactions || interactions.length === 0) {
+      return NextResponse.json({ comments: [] })
+    }
+
+    // Batch-fetch profiles for all comment authors
+    const userIds = [...new Set(interactions.map(i => i.user_id))]
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, display_name, neighborhood_hub, avatar_url")
+      .in("id", userIds)
+
+    const profileMap = new Map((profiles || []).map(p => [p.id, p]))
+
+    const comments = interactions.map(i => ({
+      ...i,
+      profile: profileMap.get(i.user_id) || null,
+    }))
+
+    return NextResponse.json({ comments })
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
@@ -67,7 +74,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Insert the comment
-    const { data: comment, error: insertError } = await supabase
+    const { data: interaction, error: insertError } = await supabase
       .from("feed_interactions")
       .insert({
         user_id: user.id,
@@ -75,25 +82,22 @@ export async function POST(request: NextRequest) {
         interaction_type: "comment",
         comment_text: trimmed,
       })
-      .select(`
-        id,
-        user_id,
-        feed_item_id,
-        interaction_type,
-        comment_text,
-        created_at,
-        profile:profiles!feed_interactions_user_id_fkey(
-          id,
-          display_name,
-          neighborhood_hub,
-          avatar_url
-        )
-      `)
+      .select("id, user_id, feed_item_id, interaction_type, comment_text, created_at")
       .single()
 
     if (insertError) {
+      console.log("[v0] Comment insert error:", insertError.message, insertError.details, insertError.hint)
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
+
+    // Fetch the author's profile
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id, display_name, neighborhood_hub, avatar_url")
+      .eq("id", user.id)
+      .single()
+
+    const comment = { ...interaction, profile: profile || null }
 
     return NextResponse.json({ comment })
   } catch {
