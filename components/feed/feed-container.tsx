@@ -8,36 +8,39 @@ import { LogisticsCard } from './logistics-card'
 import { BuildCard } from './build-card'
 import { DiscussionCard } from './discussion-card'
 import type { FeedItem, FeedType, Profile, Talent } from '@/lib/types/database'
-import { Loader2, RefreshCw, Pin } from 'lucide-react'
+import { Loader2, RefreshCw, Pin, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-
-interface FeedFilter {
-  type: FeedType | 'all'
-  label: string
-}
+import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface FeedContainerProps {
   initialItems: FeedItem[]
+  doneItems?: FeedItem[]
   userProfile?: Profile | null
   isOnboarding?: boolean
-  feedFilters?: FeedFilter[]
 }
 
 const EXPAND_THRESHOLD = 3
 
-export function FeedContainer({ initialItems, userProfile, isOnboarding = false, feedFilters }: FeedContainerProps) {
+type ViewMode = 'pending' | 'done'
+
+export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnboarding = false }: FeedContainerProps) {
   const [items, setItems] = useState<FeedItem[]>(initialItems)
   const [isLoading, setIsLoading] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [showAll, setShowAll] = useState(false)
   const [pinned, setPinned] = useState(false)
-  const [activeFilter, setActiveFilter] = useState<FeedType | 'all'>('all')
+  const [activeType, setActiveType] = useState<FeedType | null>(null)
+  const [viewMode, setViewMode] = useState<ViewMode>('pending')
   const expandCount = useRef(0)
   const [showPinPrompt, setShowPinPrompt] = useState(false)
   const supabase = createClient()
 
   const userTalents = (userProfile?.talents || []) as Talent[]
+
+  // Track items that were answered in this session (move to done)
+  const [sessionDone, setSessionDone] = useState<FeedItem[]>([])
+  const allDoneItems = [...doneItems, ...sessionDone]
 
   const handleExpand = useCallback(() => {
     setShowAll(true)
@@ -97,9 +100,11 @@ export function FeedContainer({ initialItems, userProfile, isOnboarding = false,
         .eq('id', userProfile?.id)
     }
 
-    // Remove the item from the list and auto-collapse to focus on next card
+    // Move item to done, remove from pending, auto-collapse
+    const doneItem = items.find(i => i.id === itemId)
     startTransition(() => {
       setItems(prev => prev.filter(i => i.id !== itemId))
+      if (doneItem) setSessionDone(prev => [...prev, doneItem])
       collapseIfNeeded()
     })
   }, [items, supabase, userProfile, collapseIfNeeded])
@@ -111,11 +116,13 @@ export function FeedContainer({ initialItems, userProfile, isOnboarding = false,
       response_type: 'discard',
     })
 
+    const doneItem = items.find(i => i.id === itemId)
     startTransition(() => {
       setItems(prev => prev.filter(i => i.id !== itemId))
+      if (doneItem) setSessionDone(prev => [...prev, doneItem])
       collapseIfNeeded()
     })
-  }, [supabase, userProfile, collapseIfNeeded])
+  }, [items, supabase, userProfile, collapseIfNeeded])
 
   const handleProductLike = useCallback(async (itemId: string) => {
     const { data: existing } = await supabase
@@ -253,201 +260,235 @@ export function FeedContainer({ initialItems, userProfile, isOnboarding = false,
     }
   }
 
-  // Apply type filter, then onboarding filter
-  const typeFiltered = activeFilter === 'all'
-    ? items
-    : items.filter(i => i.feed_type === activeFilter)
+  // ── Derived state ───────────────────────────────────────────────
+  // Unique feed types present in pending items (for type chips)
+  const feedTypes = [...new Set(items.map(i => i.feed_type))]
+
+  // Apply type filter
+  const typeFiltered = activeType
+    ? items.filter(i => i.feed_type === activeType)
+    : items
   
   const displayItems = isOnboarding 
     ? typeFiltered.filter(i => i.feed_type === 'scenario')
     : typeFiltered
 
-  // Show one card or all
   const visibleItems = showAll ? displayItems : displayItems.slice(0, 1)
 
-  // Progress: how many have been answered from the original set
-  const answeredCount = initialItems.length - items.length
-  const totalCount = initialItems.length
+  // Progress
+  const doneCount = allDoneItems.length
+  const totalCount = doneCount + items.length
 
-  // Count items per feed type for filter badges
-  const countByType = (type: FeedType) => items.filter(i => i.feed_type === type).length
+  // Type chip labels
+  const typeLabel: Record<string, string> = {
+    scenario: 'Scenarios',
+    product: 'Products',
+    build: 'Tasks',
+    logistics: 'Logistics',
+    discussion: 'Discussion',
+    verification: 'Verification',
+  }
 
-  if (displayItems.length === 0) {
+  // ── Empty state ───────────────────────────────────────────────
+  if (items.length === 0 && allDoneItems.length === 0) {
     return (
-      <div className="space-y-3">
-        {/* Filter chips even on empty state */}
-        {feedFilters && feedFilters.length > 0 && (
-          <FilterChips
-            filters={feedFilters}
-            active={activeFilter}
-            onSelect={setActiveFilter}
-            countByType={countByType}
-            totalCount={items.length}
-          />
-        )}
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-            <RefreshCw className="h-6 w-6 text-primary" />
-          </div>
-          <h3 className="font-semibold text-foreground mb-1">
-            {isOnboarding ? 'All caught up!' : 'Nothing here yet'}
-          </h3>
-          <p className="text-sm text-muted-foreground max-w-xs">
-            {isOnboarding 
-              ? 'Head to your feed to see what\'s happening!'
-              : 'Check back later for new items.'}
-          </p>
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+          <RefreshCw className="h-6 w-6 text-primary" />
         </div>
+        <h3 className="font-semibold text-foreground mb-1">
+          {isOnboarding ? 'All caught up!' : 'Nothing here yet'}
+        </h3>
+        <p className="text-sm text-muted-foreground max-w-xs">
+          {isOnboarding 
+            ? 'Head to your feed to see what\'s happening!'
+            : 'Check back later for new items.'}
+        </p>
       </div>
     )
   }
 
+  // ── Render ────────────────────────────────────────────────────
   return (
     <div className="space-y-3">
-      {/* Feed type filter chips */}
-      {feedFilters && feedFilters.length > 0 && (
-        <FilterChips
-          filters={feedFilters}
-          active={activeFilter}
-          onSelect={setActiveFilter}
-          countByType={countByType}
-          totalCount={items.length}
-        />
-      )}
-
-      {visibleItems.map(renderFeedItem)}
-
-      {/* Progress counter below cards -- fully tappable */}
-      {totalCount > 1 && (
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            {/* Tap current count to collapse to single */}
+      {/* Nav row: type chips + done toggle — single row, no duplication */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
+        {feedTypes.map((type) => {
+          const count = items.filter(i => i.feed_type === type).length
+          const isActive = activeType === type
+          return (
             <button
-              onClick={() => setShowAll(false)}
+              key={type}
+              onClick={() => {
+                setActiveType(isActive ? null : type)
+                setViewMode('pending')
+              }}
               className={cn(
-                'font-medium transition-colors',
-                !showAll ? 'text-primary' : 'text-foreground hover:text-primary'
+                'shrink-0 rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
+                isActive
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:text-foreground'
               )}
-              title="Show current card"
             >
-              {answeredCount + 1}
+              {typeLabel[type] || type}
+              <span className={cn(
+                'ml-1 tabular-nums',
+                isActive ? 'text-primary-foreground/70' : 'text-muted-foreground/50'
+              )}>
+                {count}
+              </span>
             </button>
-            <span>/</span>
-            {/* Tap total to show all */}
+          )
+        })}
+
+        {/* Done chip -- navigate to answered cards */}
+        {doneCount > 0 && (
+          <>
+            <div className="h-4 w-px bg-border shrink-0" aria-hidden />
             <button
-              onClick={handleExpand}
+              onClick={() => {
+                setViewMode(viewMode === 'done' ? 'pending' : 'done')
+                setActiveType(null)
+              }}
               className={cn(
-                'font-medium transition-colors',
-                showAll ? 'text-primary' : 'text-foreground hover:text-primary'
+                'shrink-0 flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
+                viewMode === 'done'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:text-foreground'
               )}
-              title="Show all"
             >
-              {totalCount}
+              <CheckCircle2 className="h-3 w-3" />
+              Done
+              <span className={cn(
+                'tabular-nums',
+                viewMode === 'done' ? 'text-primary-foreground/70' : 'text-muted-foreground/50'
+              )}>
+                {doneCount}
+              </span>
             </button>
+          </>
+        )}
+      </div>
 
-            {pinned && (
-              <Pin className="h-3 w-3 ml-1 text-primary" />
-            )}
-          </div>
-
-          {/* Show all / load more — simple language */}
-          {!showAll && displayItems.length > 1 && (
-            <button
-              onClick={handleExpand}
-              className="text-xs text-muted-foreground transition-colors hover:text-primary"
-            >
-              Show all
-            </button>
+      {/* ── Done view ──────────────────────────────────────────── */}
+      {viewMode === 'done' && (
+        <div className="space-y-2">
+          {allDoneItems.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">No answered items yet.</p>
+          ) : (
+            allDoneItems.map((item) => (
+              <Card key={item.id} className="border border-border bg-muted/30 opacity-80">
+                <CardHeader className="py-2.5 px-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <CardTitle className="text-sm font-medium text-foreground truncate">
+                      {item.title}
+                    </CardTitle>
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary" />
+                  </div>
+                </CardHeader>
+              </Card>
+            ))
           )}
         </div>
       )}
 
-      {/* Pin prompt after repeated expansions */}
-      {showPinPrompt && !pinned && (
-        <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
-          <span className="text-xs text-foreground">Keep expanded?</span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => setShowPinPrompt(false)}
-            >
-              No
-            </Button>
-            <Button
-              size="sm"
-              className="h-6 px-2 text-xs bg-primary text-primary-foreground"
-              onClick={handlePin}
-            >
-              Yes
-            </Button>
-          </div>
-        </div>
+      {/* ── Pending view ───────────────────────────────────────── */}
+      {viewMode === 'pending' && (
+        <>
+          {displayItems.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              {activeType ? 'No items of this type.' : 'All done for now.'}
+            </p>
+          ) : (
+            <>
+              {visibleItems.map(renderFeedItem)}
+
+              {/* Counter row: tappable 1 / 12 + show all */}
+              {displayItems.length > 1 && (
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                    <button
+                      onClick={() => setShowAll(false)}
+                      className={cn(
+                        'font-medium tabular-nums transition-colors',
+                        !showAll ? 'text-primary' : 'text-foreground hover:text-primary'
+                      )}
+                      title="Focus on current"
+                    >
+                      1
+                    </button>
+                    <span className="text-muted-foreground/50">/</span>
+                    <button
+                      onClick={handleExpand}
+                      className={cn(
+                        'font-medium tabular-nums transition-colors',
+                        showAll ? 'text-primary' : 'text-foreground hover:text-primary'
+                      )}
+                      title="Show all"
+                    >
+                      {displayItems.length}
+                    </button>
+                    {pinned && <Pin className="h-3 w-3 ml-1 text-primary" />}
+                  </div>
+
+                  {!showAll && (
+                    <button
+                      onClick={handleExpand}
+                      className="text-xs text-muted-foreground transition-colors hover:text-primary"
+                    >
+                      Show all
+                    </button>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Pin prompt */}
+          {showPinPrompt && !pinned && (
+            <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+              <span className="text-xs text-foreground">Keep expanded?</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowPinPrompt(false)}
+                >
+                  No
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-6 px-2 text-xs bg-primary text-primary-foreground"
+                  onClick={handlePin}
+                >
+                  Yes
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {showAll && !isOnboarding && items.length >= 10 && (
+            <div className="flex justify-center pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadMoreItems}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  'Load more'
+                )}
+              </Button>
+            </div>
+          )}
+        </>
       )}
-
-      {showAll && !isOnboarding && items.length >= 10 && (
-        <div className="flex justify-center pt-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={loadMoreItems}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                Loading...
-              </>
-            ) : (
-              'Load more'
-            )}
-          </Button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Filter chips component ──────────────────────────────────────────
-interface FilterChipsProps {
-  filters: FeedFilter[]
-  active: FeedType | 'all'
-  onSelect: (type: FeedType | 'all') => void
-  countByType: (type: FeedType) => number
-  totalCount: number
-}
-
-function FilterChips({ filters, active, onSelect, countByType, totalCount }: FilterChipsProps) {
-  return (
-    <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
-      {filters.map(({ type, label }) => {
-        const count = type === 'all' ? totalCount : countByType(type as FeedType)
-        const isActive = active === type
-        if (type !== 'all' && count === 0) return null
-        return (
-          <button
-            key={type}
-            onClick={() => onSelect(type)}
-            className={cn(
-              'shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors',
-              isActive
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
-            )}
-          >
-            {label}
-            {count > 0 && (
-              <span className={cn(
-                'ml-1.5 tabular-nums',
-                isActive ? 'text-primary-foreground/70' : 'text-muted-foreground/60'
-              )}>
-                {count}
-              </span>
-            )}
-          </button>
-        )
-      })}
     </div>
   )
 }
