@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet'
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -18,7 +18,7 @@ import type { FeedItem } from '@/lib/types/database'
 interface ScenarioEditSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  item: FeedItem | null  // null = create new
+  item: FeedItem | null
   agreementId: string
   onDraftCreated?: () => void
 }
@@ -42,7 +42,6 @@ export function ScenarioEditSheet({
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
-  // Populate form when item changes
   useEffect(() => {
     if (item) {
       setTitle(item.title || '')
@@ -119,19 +118,19 @@ export function ScenarioEditSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
-        <SheetHeader className="pb-4">
-          <SheetTitle className="flex items-center gap-2 text-foreground">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-foreground">
             {isNew ? <FilePlus className="h-4 w-4" /> : <FileEdit className="h-4 w-4" />}
             {isNew ? 'Propose New Scenario' : 'Propose Edit'}
-          </SheetTitle>
-          <SheetDescription>
+          </DialogTitle>
+          <DialogDescription>
             {isNew
               ? 'Create a new scenario. It will go live once all collaborators approve.'
               : 'Edit this scenario. Changes go live once all collaborators approve.'}
-          </SheetDescription>
-        </SheetHeader>
+          </DialogDescription>
+        </DialogHeader>
 
         <div className="space-y-4">
           {/* Title */}
@@ -248,7 +247,7 @@ export function ScenarioEditSheet({
           {/* Change summary */}
           {!isNew && (
             <div className="space-y-1.5">
-              <Label htmlFor="draft-summary" className="text-foreground">What changed? (helps collaborators review)</Label>
+              <Label htmlFor="draft-summary" className="text-foreground">What changed?</Label>
               <Input
                 id="draft-summary"
                 value={changeSummary}
@@ -259,15 +258,9 @@ export function ScenarioEditSheet({
             </div>
           )}
 
-          {/* Error / Success */}
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
-          {success && (
-            <p className="text-sm text-primary">Draft submitted for approval.</p>
-          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          {success && <p className="text-sm text-primary">Draft submitted for approval.</p>}
 
-          {/* Submit */}
           <Button
             onClick={handleSubmit}
             disabled={isSubmitting || success || !title.trim()}
@@ -285,7 +278,7 @@ export function ScenarioEditSheet({
             )}
           </Button>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }
