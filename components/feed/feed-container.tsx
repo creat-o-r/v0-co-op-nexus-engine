@@ -23,6 +23,7 @@ interface FeedContainerProps {
 const EXPAND_THRESHOLD = 3
 
 type ViewMode = 'pending' | 'done'
+type DoneFilter = 'all' | 'answered' | 'skipped'
 
 export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnboarding = false }: FeedContainerProps) {
   const [items, setItems] = useState<FeedItem[]>(initialItems)
@@ -32,6 +33,7 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
   const [pinned, setPinned] = useState(false)
   const [activeType, setActiveType] = useState<FeedType | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('pending')
+  const [doneFilter, setDoneFilter] = useState<DoneFilter>('all')
   const expandCount = useRef(0)
   const [showPinPrompt, setShowPinPrompt] = useState(false)
   const supabase = createClient()
@@ -401,21 +403,58 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
       </div>
 
       {/* ── Done view ──────────────────────────────────────────── */}
-      {viewMode === 'done' && (
-        <div className="space-y-2">
-          {allDoneItems.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">No answered items yet.</p>
-          ) : (
-            allDoneItems.map((item) => (
-              <DoneScenarioCard
-                key={item.id}
-                item={item as DoneItem}
-                onEdit={handleEditDone}
-              />
-            ))
-          )}
-        </div>
-      )}
+      {viewMode === 'done' && (() => {
+        const skippedItems = allDoneItems.filter(i => i._responseType === 'discard')
+        const answeredItems = allDoneItems.filter(i => i._responseType !== 'discard')
+        const filteredDone = doneFilter === 'answered'
+          ? answeredItems
+          : doneFilter === 'skipped'
+            ? skippedItems
+            : allDoneItems
+
+        return (
+          <div className="space-y-2">
+            {/* Sub-filters: Answered / Skipped */}
+            {answeredItems.length > 0 && skippedItems.length > 0 && (
+              <div className="flex gap-1">
+                {([
+                  { key: 'all' as DoneFilter, label: 'All', count: allDoneItems.length },
+                  { key: 'answered' as DoneFilter, label: 'Answered', count: answeredItems.length },
+                  { key: 'skipped' as DoneFilter, label: 'Skipped', count: skippedItems.length },
+                ]).map(({ key, label, count }) => (
+                  <button
+                    key={key}
+                    onClick={() => setDoneFilter(key)}
+                    className={cn(
+                      'rounded-full px-2 py-0.5 text-xs font-medium transition-colors',
+                      doneFilter === key
+                        ? 'bg-foreground/10 text-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    {label}
+                    <span className="ml-1 tabular-nums opacity-50">{count}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {filteredDone.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                {doneFilter === 'skipped' ? 'No skipped items.' : 'No answered items yet.'}
+              </p>
+            ) : (
+              filteredDone.map((item) => (
+                <DoneScenarioCard
+                  key={item.id}
+                  item={item as DoneItem}
+                  onEdit={handleEditDone}
+                />
+              ))
+            )}
+          </div>
+        )
+      })()}
 
       {/* ── Pending view ───────────────────────────────────────── */}
       {viewMode === 'pending' && (

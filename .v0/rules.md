@@ -24,7 +24,9 @@ Every displayed number, label, or count MUST be tappable and do something obviou
 - **Edit = move back to pending**: Editing a done item deletes the DB response and moves the item back to the pending feed for re-answering. No inline edit modals -- reuse the same card flow.
 - **Type filters toggle on/off**: Tapping an active filter deselects it (shows all). No separate "All" chip needed.
 - **Headers serve function, not decoration**: Page headers should contain navigation, filters, or status -- not greetings or descriptions that waste vertical space.
-- **Done view shows context**: Each done card must show the question title, the user's answer (as chips), whether it was answered or skipped, and an edit button. Don't render empty stubs.
+- **Done view shows context**: Each done card must show the question title, the user's answer (as chips), whether it was answered or skipped, and an edit action. Don't render empty stubs.
+- **Skipped != answered**: Skipped items must look visually distinct (dashed border, muted bg) and feel re-engageable ("Tap to answer" on hover). They're unfinished business, not completed work.
+- **Done sub-filters**: When both answered and skipped items exist, show sub-filter chips (All / Answered / Skipped) so users can quickly find what they skipped.
 
 ## Architecture
 

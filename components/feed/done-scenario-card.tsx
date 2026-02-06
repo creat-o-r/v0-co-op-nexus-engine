@@ -1,7 +1,7 @@
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { CheckCircle2, XCircle, RotateCcw } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { CheckCircle2, SkipForward, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FeedItem } from '@/lib/types/database'
 
@@ -20,55 +20,67 @@ export function DoneScenarioCard({ item, onEdit }: DoneScenarioCardProps) {
   const answers = item._userAnswer?.split(', ').filter(Boolean) || []
 
   return (
-    <Card className="border border-border bg-card transition-colors">
-      <CardHeader className="pb-1.5 pt-3 px-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 mb-1">
-              {wasSkipped ? (
-                <XCircle className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              ) : (
-                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary" />
-              )}
-              <span className={cn(
-                'text-xs font-medium',
-                wasSkipped ? 'text-muted-foreground' : 'text-primary'
-              )}>
-                {wasSkipped ? 'Skipped' : 'Answered'}
-              </span>
-            </div>
-            <CardTitle className="text-sm font-medium text-foreground leading-snug">
-              {item.title}
-            </CardTitle>
+    <Card
+      className={cn(
+        'group border transition-colors cursor-pointer',
+        wasSkipped
+          ? 'border-dashed border-muted-foreground/25 bg-muted/40 hover:border-primary/40 hover:bg-muted/60'
+          : 'border-border bg-card hover:border-primary/30'
+      )}
+      onClick={() => onEdit(item)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter') onEdit(item) }}
+    >
+      <CardContent className="px-4 py-3">
+        {/* Top: status + title + edit hint */}
+        <div className="flex items-start gap-3">
+          {/* Status icon */}
+          <div className={cn(
+            'mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full',
+            wasSkipped
+              ? 'bg-muted-foreground/10'
+              : 'bg-primary/10'
+          )}>
+            {wasSkipped ? (
+              <SkipForward className="h-3 w-3 text-muted-foreground" />
+            ) : (
+              <CheckCircle2 className="h-3 w-3 text-primary" />
+            )}
           </div>
-          <button
-            onClick={() => onEdit(item)}
-            className="shrink-0 flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-primary hover:bg-primary/5"
-            title="Change your answer"
-          >
-            <RotateCcw className="h-3 w-3" />
-            Edit
-          </button>
-        </div>
-      </CardHeader>
 
-      <CardContent className="px-4 pb-3 pt-0">
-        {!wasSkipped && answers.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5 mt-1">
-            {answers.map((answer) => (
-              <span
-                key={answer}
-                className="inline-block rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"
-              >
-                {answer}
-              </span>
-            ))}
+          {/* Content */}
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-foreground leading-snug">
+              {item.title}
+            </p>
+
+            {/* Answer display or skipped prompt */}
+            {wasSkipped ? (
+              <p className="mt-1.5 text-xs text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                Tap to answer
+              </p>
+            ) : answers.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {answers.map((answer) => (
+                  <span
+                    key={answer}
+                    className="inline-block rounded-full bg-primary/8 px-2 py-0.5 text-xs text-primary/80"
+                  >
+                    {answer}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Confirmed
+              </p>
+            )}
           </div>
-        ) : wasSkipped ? (
-          <p className="mt-1 text-xs text-muted-foreground italic">
-            No answer provided
-          </p>
-        ) : null}
+
+          {/* Edit icon -- visible on hover / always visible on mobile */}
+          <Pencil className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+        </div>
       </CardContent>
     </Card>
   )
