@@ -8,18 +8,18 @@ import { Check, X, ChevronRight, PenLine, MessageCircle, BarChart3 } from 'lucid
 import type { FeedItem } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
 import { CommentThread } from './comment-thread'
+import { ScenarioCardBackContent } from './scenario-card-back'
 
 interface ScenarioCardProps {
   item: FeedItem
   onLike: (itemId: string, selectedOption?: string) => Promise<void>
   onDiscard: (itemId: string) => Promise<void>
   currentUserId?: string
-  onFlipToBack?: (item: FeedItem) => void
   /** Pre-fill from a prior answer (comma-separated string or null) */
   initialSelection?: string | null
 }
 
-export function ScenarioCard({ item, onLike, onDiscard, currentUserId, onFlipToBack, initialSelection }: ScenarioCardProps) {
+export function ScenarioCard({ item, onLike, onDiscard, currentUserId, initialSelection }: ScenarioCardProps) {
   const options = item.scenario_options || []
 
   // Parse initial selection: split by comma, separate known options from "other" text
@@ -38,6 +38,7 @@ export function ScenarioCard({ item, onLike, onDiscard, currentUserId, onFlipToB
   const [showOtherInput, setShowOtherInput] = useState(parsedInitial.other.length > 0)
   const [showComments, setShowComments] = useState(false)
   const [commentsCount, setCommentsCount] = useState(item.comments_count)
+  const [isFlipped, setIsFlipped] = useState(false)
 
   // Detect multi-select from the question text itself (seed data uses "Select all that apply")
   const multiSelect = useMemo(() => {
@@ -87,6 +88,48 @@ export function ScenarioCard({ item, onLike, onDiscard, currentUserId, onFlipToB
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // Flipped: show back content
+  if (isFlipped) {
+    return (
+      <Card className="overflow-hidden border-2 border-border">
+        <CardContent className="px-4 py-4 space-y-4">
+          <ScenarioCardBackContent item={item} />
+
+          {/* Bottom bar */}
+          <div className="flex items-center gap-2 pt-2 border-t border-border">
+            <button
+              onClick={() => setShowComments(!showComments)}
+              className={cn(
+                'flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs transition-colors',
+                showComments
+                  ? 'text-primary bg-primary/10'
+                  : 'text-muted-foreground hover:bg-muted'
+              )}
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              {commentsCount > 0 && <span className="tabular-nums">{commentsCount}</span>}
+            </button>
+            <button
+              onClick={() => setIsFlipped(false)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs text-muted-foreground hover:bg-muted transition-colors"
+            >
+              <BarChart3 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          {showComments && (
+            <CommentThread
+              feedItemId={item.id}
+              currentUserId={currentUserId}
+              commentsCount={commentsCount}
+              onCountChange={setCommentsCount}
+            />
+          )}
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
@@ -221,30 +264,24 @@ export function ScenarioCard({ item, onLike, onDiscard, currentUserId, onFlipToB
             )}
           >
             <MessageCircle className="h-3.5 w-3.5" />
-            <span>{commentsCount > 0 ? commentsCount : 'Discuss'}</span>
+            {commentsCount > 0 && <span className="tabular-nums">{commentsCount}</span>}
           </button>
 
-          {onFlipToBack && (
-            <button
-              onClick={() => onFlipToBack(item)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs text-muted-foreground hover:bg-muted transition-colors"
-            >
-              <BarChart3 className="h-3.5 w-3.5" />
-              <span>Votes</span>
-            </button>
-          )}
+          <button
+            onClick={() => setIsFlipped(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs text-muted-foreground hover:bg-muted transition-colors"
+          >
+            <BarChart3 className="h-3.5 w-3.5" />
+          </button>
         </div>
 
-        {/* Comment thread */}
         {showComments && (
-          <div className="pt-2">
-            <CommentThread
-              feedItemId={item.id}
-              currentUserId={currentUserId}
-              commentsCount={commentsCount}
-              onCountChange={setCommentsCount}
-            />
-          </div>
+          <CommentThread
+            feedItemId={item.id}
+            currentUserId={currentUserId}
+            commentsCount={commentsCount}
+            onCountChange={setCommentsCount}
+          />
         )}
       </CardContent>
     </Card>

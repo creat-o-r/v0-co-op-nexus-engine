@@ -130,7 +130,7 @@ export function DoneScenarioCard({ item, onEdit, currentUserId }: DoneScenarioCa
             )}
           >
             <MessageCircle className="h-3.5 w-3.5" />
-            <span>{commentsCount > 0 ? commentsCount : 'Discuss'}</span>
+            {commentsCount > 0 && <span className="tabular-nums">{commentsCount}</span>}
           </button>
 
           <button
@@ -138,7 +138,6 @@ export function DoneScenarioCard({ item, onEdit, currentUserId }: DoneScenarioCa
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs text-muted-foreground hover:bg-muted transition-colors"
           >
             <BarChart3 className="h-3.5 w-3.5" />
-            <span>Votes</span>
           </button>
         </div>
 

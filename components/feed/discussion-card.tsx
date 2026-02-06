@@ -75,7 +75,7 @@ export function DiscussionCard({ item, onLike, currentUserId, onShare }: Discuss
           <h3 className="font-semibold text-foreground">{item.title}</h3>
         )}
         
-        {item.content && (
+        {item.content && item.content !== item.title && (
           <p className="text-foreground whitespace-pre-wrap">{item.content}</p>
         )}
 
