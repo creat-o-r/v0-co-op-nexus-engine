@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { FeedContainer } from "@/components/feed/feed-container";
-import type { FeedItem } from "@/lib/types/database";
+import type { FeedItem, Profile } from "@/lib/types/database";
 
 export const metadata = {
   title: "Action Feed | Co-Op Nexus",
@@ -12,6 +12,19 @@ export default async function FeedPage() {
   
   const { data: { user } } = await supabase.auth.getUser();
   
+  // Fetch user profile for talent-based features
+  let userProfile: Profile | null = null;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+    userProfile = profile as Profile | null;
+  }
+
+  const isAdmin = userProfile?.talents?.includes("Admin") ?? false;
+
   // Fetch feed items - including system scenarios for onboarding
   const { data: feedItems, error } = await supabase
     .from("feed_items")
@@ -55,7 +68,8 @@ export default async function FeedPage() {
         
         <FeedContainer 
           initialItems={filteredItems as FeedItem[]} 
-          userId={user?.id}
+          userProfile={userProfile}
+          isAdmin={isAdmin}
         />
       </div>
     </main>
