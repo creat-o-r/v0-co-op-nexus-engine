@@ -140,12 +140,10 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
         .eq('id', userProfile?.id)
     }
 
-    // Move item to done, remove from pending, clear edited-out flag, auto-collapse
-    // Per dev rules: deduplicate both lists on every transition to prevent ghost entries
+    // Move item to done, remove from pending, clear edited-out flag, reset done filter, auto-collapse
     const sourceItem = items.find(i => i.id === itemId)
     startTransition(() => {
       setItems(prev => prev.filter(i => i.id !== itemId))
-      // Clear edited-out flag so it doesn't ghost in both lists
       setEditedOutIds(prev => {
         const next = new Set(prev)
         next.delete(itemId)
@@ -153,7 +151,6 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
       })
       if (sourceItem) {
         setSessionDone(prev => [
-          // Remove any stale session entry for this item (re-edit scenario)
           ...prev.filter(d => d.id !== itemId),
           {
             ...sourceItem,
@@ -162,6 +159,8 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
           },
         ])
       }
+      // Reset done sub-filter so newly answered item isn't hidden by stale filter
+      setDoneFilter('all')
       collapseIfNeeded()
     })
   }, [items, supabase, userProfile, collapseIfNeeded])
@@ -191,6 +190,7 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
           },
         ])
       }
+      setDoneFilter('all')
       collapseIfNeeded()
     })
   }, [items, supabase, userProfile, collapseIfNeeded])
@@ -282,16 +282,18 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
   // Render the appropriate card type
   const renderFeedItem = (item: FeedItem) => {
     switch (item.feed_type) {
-      case 'scenario':
+      case 'scenario': {
+        const priorAnswer = (item as DoneItem)._userAnswer
         return (
           <ScenarioCard
-            key={item.id}
+            key={`${item.id}-${priorAnswer ?? 'fresh'}`}
             item={item}
             onLike={handleScenarioLike}
             onDiscard={handleScenarioDiscard}
-            initialSelection={(item as DoneItem)._userAnswer}
+            initialSelection={priorAnswer}
           />
         )
+      }
       case 'product':
         return (
           <ProductCard
@@ -446,6 +448,7 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
       {viewMode === 'done' && (() => {
         const skippedItems = allDoneItems.filter(i => i._responseType === 'discard')
         const answeredItems = allDoneItems.filter(i => i._responseType !== 'discard')
+        // Toggle chips: tap active to deselect (show all). No separate "All" chip.
         const filteredDone = doneFilter === 'answered'
           ? answeredItems
           : doneFilter === 'skipped'
@@ -454,34 +457,49 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
 
         return (
           <div className="space-y-2">
-            {/* Sub-filters: Answered / Skipped */}
+            {/* Sub-filters: Answered / Skipped -- toggle on/off, no "All" */}
             {answeredItems.length > 0 && skippedItems.length > 0 && (
               <div className="flex gap-1">
-                {([
-                  { key: 'all' as DoneFilter, label: 'All', count: allDoneItems.length },
-                  { key: 'answered' as DoneFilter, label: 'Answered', count: answeredItems.length },
-                  { key: 'skipped' as DoneFilter, label: 'Skipped', count: skippedItems.length },
-                ]).map(({ key, label, count }) => (
-                  <button
-                    key={key}
-                    onClick={() => setDoneFilter(key)}
-                    className={cn(
-                      'rounded-full px-2 py-0.5 text-xs font-medium transition-colors',
-                      doneFilter === key
-                        ? 'bg-foreground/10 text-foreground'
-                        : 'text-muted-foreground hover:text-foreground'
-                    )}
-                  >
-                    {label}
-                    <span className="ml-1 tabular-nums opacity-50">{count}</span>
-                  </button>
-                ))}
+                <button
+                  onClick={() => setDoneFilter(doneFilter === 'answered' ? 'all' : 'answered')}
+                  className={cn(
+                    'rounded-full px-2 py-0.5 text-xs font-medium transition-colors',
+                    doneFilter === 'answered'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Answered
+                  <span className={cn(
+                    'ml-1 tabular-nums',
+                    doneFilter === 'answered' ? 'text-primary-foreground/70' : 'opacity-50'
+                  )}>
+                    {answeredItems.length}
+                  </span>
+                </button>
+                <button
+                  onClick={() => setDoneFilter(doneFilter === 'skipped' ? 'all' : 'skipped')}
+                  className={cn(
+                    'rounded-full px-2 py-0.5 text-xs font-medium transition-colors',
+                    doneFilter === 'skipped'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Skipped
+                  <span className={cn(
+                    'ml-1 tabular-nums',
+                    doneFilter === 'skipped' ? 'text-primary-foreground/70' : 'opacity-50'
+                  )}>
+                    {skippedItems.length}
+                  </span>
+                </button>
               </div>
             )}
 
             {filteredDone.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
-                {doneFilter === 'skipped' ? 'No skipped items.' : 'No answered items yet.'}
+                {doneFilter === 'skipped' ? 'No skipped items.' : doneFilter === 'answered' ? 'No answered items.' : 'No items yet.'}
               </p>
             ) : (
               filteredDone.map((item) => (

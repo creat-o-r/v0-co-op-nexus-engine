@@ -49,7 +49,13 @@ Write out the paths as a comment block:
 - `editedOutIds: Set<string>` -- tracks server-loaded items that have been moved back to pending. Prevents ghosts.
 - `sessionDone: DoneItem[]` -- deduplicates on `.filter(d => d.id !== itemId)` before adding new entry. Prevents stale doubles.
 - `initialSelection` prop on cards -- carries prior answer forward when re-editing. Parses into known options + "other" text.
+- **Key includes prior state**: When a card re-enters pending with prior data, its React `key` must include the prior answer (e.g. `${id}-${answer ?? 'fresh'}`) to force `useState` re-initialization. Without this, the component reuses stale initial state.
+- **Reset sub-filters on state change**: When an item moves between categories (answered/skipped), reset `doneFilter` to `'all'` so the item is visible regardless of which sub-filter was active. Stale filters hide newly transitioned items.
 - Sub-filter counts are derived from `allDoneItems` which already excludes edited-out items. No manual count adjustment needed.
+
+**6. Stale filter state**
+- When an item transitions between categories, any active filter that would HIDE the new category must be reset.
+- Example: user is viewing "Skipped" filter, edits last skipped item, answers it -> it's now "Answered". If filter stays on "Skipped", the done view shows empty. Reset filter to show all.
 
 ## UX: Everything is Navigable
 
@@ -77,7 +83,7 @@ Every displayed number, label, or count MUST be tappable and do something obviou
 - **Headers serve function, not decoration**: Page headers should contain navigation, filters, or status -- not greetings or descriptions that waste vertical space.
 - **Done view shows context**: Each done card must show the question title, the user's answer (as chips), whether it was answered or skipped, and an edit action. Don't render empty stubs.
 - **Skipped != answered**: Skipped items must look visually distinct (dashed border, muted bg) and feel re-engageable ("Tap to answer" on hover). They're unfinished business, not completed work.
-- **Done sub-filters**: When both answered and skipped items exist, show sub-filter chips (All / Answered / Skipped) so users can quickly find what they skipped.
+- **Done sub-filters**: When both answered and skipped items exist, show toggleable chips (Answered / Skipped). Tap active chip to deselect = show all. No "All" chip -- same pattern as type filters. Reset to show-all when items change category.
 
 ## Architecture
 
