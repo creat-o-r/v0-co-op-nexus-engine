@@ -8,8 +8,9 @@ import { LogisticsCard } from './logistics-card'
 import { BuildCard } from './build-card'
 import { DiscussionCard } from './discussion-card'
 import type { FeedItem, Profile, Talent } from '@/lib/types/database'
-import { Loader2, RefreshCw, ChevronDown } from 'lucide-react'
+import { Loader2, RefreshCw, ChevronDown, Pin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useRef } from 'react'
 
 interface FeedContainerProps {
   initialItems: FeedItem[]
@@ -17,14 +18,41 @@ interface FeedContainerProps {
   isOnboarding?: boolean
 }
 
+const EXPAND_THRESHOLD = 3 // After this many manual expansions, offer to keep open
+
 export function FeedContainer({ initialItems, userProfile, isOnboarding = false }: FeedContainerProps) {
   const [items, setItems] = useState<FeedItem[]>(initialItems)
   const [isLoading, setIsLoading] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [showAll, setShowAll] = useState(false)
+  const [pinned, setPinned] = useState(false) // user chose to keep expanded
+  const expandCount = useRef(0)
+  const [showPinPrompt, setShowPinPrompt] = useState(false)
   const supabase = createClient()
 
   const userTalents = (userProfile?.talents || []) as Talent[]
+
+  // Expand handler with persistence tracking
+  const handleExpand = useCallback(() => {
+    setShowAll(true)
+    expandCount.current += 1
+    if (expandCount.current >= EXPAND_THRESHOLD && !pinned) {
+      setShowPinPrompt(true)
+    }
+  }, [pinned])
+
+  // Auto-collapse after an item is answered (unless pinned)
+  const collapseIfNeeded = useCallback(() => {
+    if (!pinned) {
+      setShowAll(false)
+    }
+  }, [pinned])
+
+  const handlePin = useCallback(() => {
+    setPinned(true)
+    setShowAll(true)
+    setShowPinPrompt(false)
+  }, [])
 
   // Handle scenario like (creates user need if product-related)
   const handleScenarioLike = useCallback(async (itemId: string, selectedOption?: string) => {
@@ -64,11 +92,12 @@ export function FeedContainer({ initialItems, userProfile, isOnboarding = false 
         .eq('id', userProfile?.id)
     }
 
-    // Remove the item from the list
+    // Remove the item from the list and auto-collapse to focus on next card
     startTransition(() => {
       setItems(prev => prev.filter(i => i.id !== itemId))
+      collapseIfNeeded()
     })
-  }, [items, supabase, userProfile])
+  }, [items, supabase, userProfile, collapseIfNeeded])
 
   const handleScenarioDiscard = useCallback(async (itemId: string) => {
     await supabase.from('scenario_responses').insert({
@@ -79,8 +108,9 @@ export function FeedContainer({ initialItems, userProfile, isOnboarding = false 
 
     startTransition(() => {
       setItems(prev => prev.filter(i => i.id !== itemId))
+      collapseIfNeeded()
     })
-  }, [supabase, userProfile])
+  }, [supabase, userProfile, collapseIfNeeded])
 
   const handleProductLike = useCallback(async (itemId: string) => {
     const { data: existing } = await supabase
@@ -245,19 +275,66 @@ export function FeedContainer({ initialItems, userProfile, isOnboarding = false 
     )
   }
 
+  // Current position for the x/y counter
+  const currentIndex = showAll ? displayItems.length : 1
+
   return (
     <div className="space-y-4">
+      {/* Compact x / y counter */}
+      {displayItems.length > 1 && (
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>
+            <span className="font-medium text-foreground">{currentIndex}</span>
+            {' / '}
+            <span className="font-medium text-foreground">{displayItems.length}</span>
+          </span>
+          {pinned && (
+            <span className="flex items-center gap-1 text-primary">
+              <Pin className="h-3 w-3" />
+              Expanded
+            </span>
+          )}
+        </div>
+      )}
+
       {visibleItems.map(renderFeedItem)}
       
-      {/* Subtle expand prompt below the single visible card */}
+      {/* Expand prompt + pin offer */}
       {!showAll && hiddenCount > 0 && (
-        <button
-          onClick={() => setShowAll(true)}
-          className="flex w-full items-center justify-center gap-1.5 py-2 text-xs text-muted-foreground transition-colors hover:text-primary"
-        >
-          <ChevronDown className="h-3.5 w-3.5" />
-          {hiddenCount} more {hiddenCount === 1 ? 'item' : 'items'}
-        </button>
+        <div className="space-y-2">
+          <button
+            onClick={handleExpand}
+            className="flex w-full items-center justify-center gap-1.5 py-2 text-xs text-muted-foreground transition-colors hover:text-primary"
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
+            {hiddenCount} more {hiddenCount === 1 ? 'item' : 'items'}
+          </button>
+        </div>
+      )}
+
+      {/* Pin prompt after repeated expansions */}
+      {showPinPrompt && !pinned && (
+        <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+          <span className="text-xs text-foreground">Keep feed expanded?</span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => setShowPinPrompt(false)}
+            >
+              No thanks
+            </Button>
+            <Button
+              size="sm"
+              className="h-6 px-2 text-xs bg-primary text-primary-foreground"
+              onClick={handlePin}
+            >
+              <Pin className="h-3 w-3 mr-1" />
+              Keep open
+            </Button>
+          </div>
+        </div>
       )}
 
       {showAll && !isOnboarding && items.length >= 10 && (
