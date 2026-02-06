@@ -2,10 +2,11 @@
 
 import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { CheckCircle2, SkipForward, Pencil, BarChart3 } from 'lucide-react'
+import { CheckCircle2, SkipForward, Pencil, BarChart3, MessageCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FeedItem } from '@/lib/types/database'
 import { ScenarioCardBack } from './scenario-card-back'
+import { CommentThread } from './comment-thread'
 
 export interface DoneItem extends FeedItem {
   _userAnswer: string | null
@@ -20,10 +21,12 @@ interface DoneScenarioCardProps {
 
 export function DoneScenarioCard({ item, onEdit, currentUserId }: DoneScenarioCardProps) {
   const [isFlipped, setIsFlipped] = useState(false)
+  const [showComments, setShowComments] = useState(false)
+  const [commentsCount, setCommentsCount] = useState(item.comments_count)
   const wasSkipped = item._responseType === 'discard'
   const answers = item._userAnswer?.split(', ').filter(Boolean) || []
 
-  // Show the back (transparency view)
+  // Show the back view (votes + linkings)
   if (isFlipped) {
     return (
       <ScenarioCardBack
@@ -39,12 +42,12 @@ export function DoneScenarioCard({ item, onEdit, currentUserId }: DoneScenarioCa
       className={cn(
         'group border transition-colors',
         wasSkipped
-          ? 'border-dashed border-muted-foreground/25 bg-muted/40 hover:border-primary/40 hover:bg-muted/60'
-          : 'border-border bg-card hover:border-primary/30'
+          ? 'border-dashed border-muted-foreground/25 bg-muted/40'
+          : 'border-border bg-card'
       )}
     >
-      <CardContent className="px-4 py-3">
-        {/* Top: status + title + actions */}
+      <CardContent className="px-4 py-3 space-y-0">
+        {/* Content area */}
         <div className="flex items-start gap-3">
           {/* Status icon */}
           <div className={cn(
@@ -60,14 +63,8 @@ export function DoneScenarioCard({ item, onEdit, currentUserId }: DoneScenarioCa
             )}
           </div>
 
-          {/* Content -- clicking this edits */}
-          <div
-            className="min-w-0 flex-1 cursor-pointer"
-            onClick={() => onEdit(item)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => { if (e.key === 'Enter') onEdit(item) }}
-          >
+          {/* Question + answer */}
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 text-xs mb-1">
               <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full font-medium">
                 Scenario
@@ -82,10 +79,9 @@ export function DoneScenarioCard({ item, onEdit, currentUserId }: DoneScenarioCa
               {item.title}
             </p>
 
-            {/* Answer display or skipped prompt */}
             {wasSkipped ? (
-              <p className="mt-1.5 text-xs text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                Tap to answer
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Skipped
               </p>
             ) : answers.length > 0 ? (
               <div className="mt-2 flex flex-wrap gap-1">
@@ -104,34 +100,56 @@ export function DoneScenarioCard({ item, onEdit, currentUserId }: DoneScenarioCa
               </p>
             )}
           </div>
+        </div>
 
-          {/* Action icons */}
-          <div className="flex items-center gap-1 shrink-0">
-            {/* Transparency toggle */}
+        {/* Action footer -- clearly separated */}
+        <div className="flex items-center justify-between pt-2.5 mt-2.5 border-t border-border">
+          <div className="flex items-center gap-1">
+            {/* Chat toggle */}
             <button
-              onClick={(e) => {
-                e.stopPropagation()
-                setIsFlipped(true)
-              }}
-              className="mt-0.5 p-1 rounded-md text-muted-foreground/40 hover:text-primary hover:bg-primary/10 transition-colors"
-              aria-label="View transparency details"
-              title="View votes & discussion"
+              onClick={() => setShowComments(!showComments)}
+              className={cn(
+                'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-colors',
+                showComments
+                  ? 'text-primary bg-primary/10'
+                  : 'text-muted-foreground hover:bg-muted'
+              )}
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              <span>{commentsCount > 0 ? commentsCount : ''}</span>
+            </button>
+
+            {/* Votes / back view */}
+            <button
+              onClick={() => setIsFlipped(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs text-muted-foreground hover:bg-muted transition-colors"
             >
               <BarChart3 className="h-3.5 w-3.5" />
-            </button>
-            {/* Edit icon */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onEdit(item)
-              }}
-              className="mt-0.5 p-1 rounded-md text-muted-foreground/40 group-hover:text-primary transition-colors"
-              aria-label="Edit response"
-            >
-              <Pencil className="h-3.5 w-3.5" />
+              <span className="sr-only">View votes</span>
             </button>
           </div>
+
+          {/* Edit / re-answer */}
+          <button
+            onClick={() => onEdit(item)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs text-muted-foreground hover:bg-muted transition-colors"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            <span>{wasSkipped ? 'Answer' : 'Edit'}</span>
+          </button>
         </div>
+
+        {/* Comment thread (on front) */}
+        {showComments && (
+          <div className="pt-3">
+            <CommentThread
+              feedItemId={item.id}
+              currentUserId={currentUserId}
+              commentsCount={commentsCount}
+              onCountChange={setCommentsCount}
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
   )

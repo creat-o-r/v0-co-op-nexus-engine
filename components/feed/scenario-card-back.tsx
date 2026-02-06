@@ -2,9 +2,8 @@
 
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, BarChart3, Link2, MapPin, Package, Hammer, Truck } from 'lucide-react'
+import { Loader2, ArrowLeft, Link2, MapPin, Package, Hammer, Truck } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { CommentThread } from './comment-thread'
 import { formatDistanceToNow } from '@/lib/utils/date'
 import type { DoneItem } from './done-scenario-card'
 import useSWR from 'swr'
@@ -59,23 +58,16 @@ export function ScenarioCardBack({ item, currentUserId, onFlip }: ScenarioCardBa
         : 'border-border bg-card'
     )}>
       <CardContent className="px-4 py-4 space-y-4">
-        {/* Header: back label + flip button */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs font-medium text-muted-foreground">Transparency</span>
-          </div>
-          <button
-            onClick={onFlip}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Back to front
-          </button>
-        </div>
-
-        {/* Question */}
+        {/* Question context + back button */}
         <div>
           <div className="flex items-center gap-2 text-xs mb-1.5">
+            <button
+              onClick={onFlip}
+              className="flex items-center gap-1 px-2 py-0.5 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              aria-label="Back to front"
+            >
+              <ArrowLeft className="h-3 w-3" />
+            </button>
             <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full font-medium">
               Scenario
             </span>
@@ -193,15 +185,6 @@ export function ScenarioCardBack({ item, currentUserId, onFlip }: ScenarioCardBa
           </div>
         )}
 
-        {/* Comment thread */}
-        <div className="pt-2 border-t border-border">
-          <CommentThread
-            feedItemId={item.id}
-            currentUserId={currentUserId}
-            collapsible
-            commentsCount={item.comments_count}
-          />
-        </div>
       </CardContent>
     </Card>
   )
