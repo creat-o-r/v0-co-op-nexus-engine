@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { ScenarioCardBackContent } from './scenario-card-back'
 import { ScenarioBottomBar } from './scenario-bottom-bar'
 import { ProductPill, LabelPreview } from './item-links'
+import { ScenarioEditSheet } from './scenario-edit-sheet'
 
 interface ScenarioCardProps {
   item: FeedItem
@@ -38,6 +39,7 @@ export function ScenarioCard({ item, onLike, onDiscard, currentUserId, initialSe
   const [showComments, setShowComments] = useState(false)
   const [commentsCount, setCommentsCount] = useState(item.comments_count)
   const [isFlipped, setIsFlipped] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
 
   const multiSelect = useMemo(() => {
     const q = (item.scenario_question || '').toLowerCase()
@@ -93,8 +95,18 @@ export function ScenarioCard({ item, onLike, onDiscard, currentUserId, initialSe
             onToggleComments={() => setShowComments(!showComments)}
             onFlip={() => setIsFlipped(false)}
             onCommentsCountChange={setCommentsCount}
+            onEditScenario={item.related_agreement_id ? () => setEditOpen(true) : undefined}
           />
         </CardContent>
+
+        {item.related_agreement_id && (
+          <ScenarioEditSheet
+            open={editOpen}
+            onOpenChange={setEditOpen}
+            item={item}
+            agreementId={item.related_agreement_id}
+          />
+        )}
       </Card>
     )
   }
@@ -225,8 +237,18 @@ export function ScenarioCard({ item, onLike, onDiscard, currentUserId, initialSe
           onToggleComments={() => setShowComments(!showComments)}
           onFlip={() => setIsFlipped(true)}
           onCommentsCountChange={setCommentsCount}
+          onEditScenario={item.related_agreement_id ? () => setEditOpen(true) : undefined}
         />
       </CardContent>
+
+      {item.related_agreement_id && (
+        <ScenarioEditSheet
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          item={item}
+          agreementId={item.related_agreement_id}
+        />
+      )}
     </Card>
   )
 }

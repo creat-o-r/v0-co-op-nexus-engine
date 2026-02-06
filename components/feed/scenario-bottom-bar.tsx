@@ -1,8 +1,9 @@
 'use client'
 
-import { MessageCircle, BarChart3, RotateCcw } from 'lucide-react'
+import { MessageCircle, BarChart3, RotateCcw, FileEdit } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CommentThread } from './comment-thread'
+import { DraftBanner } from './draft-banner'
 
 interface ScenarioBottomBarProps {
   feedItemId: string
@@ -13,6 +14,7 @@ interface ScenarioBottomBarProps {
   onToggleComments: () => void
   onFlip: () => void
   onCommentsCountChange: (count: number) => void
+  onEditScenario?: () => void
 }
 
 export function ScenarioBottomBar({
@@ -24,9 +26,13 @@ export function ScenarioBottomBar({
   onToggleComments,
   onFlip,
   onCommentsCountChange,
+  onEditScenario,
 }: ScenarioBottomBarProps) {
   return (
     <div className="space-y-0">
+      {/* Draft banner */}
+      <DraftBanner feedItemId={feedItemId} currentUserId={currentUserId} />
+
       {/* Icon row */}
       <div className="flex items-center gap-2 pt-2 border-t border-border">
         <button
@@ -54,6 +60,16 @@ export function ScenarioBottomBar({
             <BarChart3 className="h-3.5 w-3.5" />
           )}
         </button>
+
+        {onEditScenario && (
+          <button
+            onClick={onEditScenario}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs text-muted-foreground hover:bg-muted transition-colors ml-auto"
+            aria-label="Edit scenario"
+          >
+            <FileEdit className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
       {/* Comment thread */}

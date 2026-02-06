@@ -96,11 +96,12 @@ interface ScenarioCardBackProps {
   onCommentsCountChange: (count: number) => void
   onFlip: () => void
   onEdit: (item: DoneItem) => void
+  onEditScenario?: () => void
 }
 
 export function ScenarioCardBack({
   item, currentUserId, showComments, commentsCount,
-  onToggleComments, onCommentsCountChange, onFlip, onEdit,
+  onToggleComments, onCommentsCountChange, onFlip, onEdit, onEditScenario,
 }: ScenarioCardBackProps) {
   const wasSkipped = item._responseType === 'discard'
   const userAnswer = item._userAnswer
@@ -168,6 +169,7 @@ export function ScenarioCardBack({
           onToggleComments={onToggleComments}
           onFlip={onFlip}
           onCommentsCountChange={onCommentsCountChange}
+          onEditScenario={onEditScenario}
         />
       </CardContent>
     </Card>

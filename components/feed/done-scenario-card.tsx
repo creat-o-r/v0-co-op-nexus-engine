@@ -8,6 +8,7 @@ import type { FeedItem } from '@/lib/types/database'
 import { ScenarioCardBack } from './scenario-card-back'
 import { ScenarioBottomBar } from './scenario-bottom-bar'
 import { ProductPill, LabelPreview, AnswerPreview } from './item-links'
+import { ScenarioEditSheet } from './scenario-edit-sheet'
 
 export interface DoneItem extends FeedItem {
   _userAnswer: string | null
@@ -24,6 +25,7 @@ export function DoneScenarioCard({ item, onEdit, currentUserId }: DoneScenarioCa
   const [isFlipped, setIsFlipped] = useState(false)
   const [showComments, setShowComments] = useState(false)
   const [commentsCount, setCommentsCount] = useState(item.comments_count)
+  const [editOpen, setEditOpen] = useState(false)
   const wasSkipped = item._responseType === 'discard'
   const answers = item._userAnswer?.split(', ').filter(Boolean) || []
 
@@ -38,6 +40,7 @@ export function DoneScenarioCard({ item, onEdit, currentUserId }: DoneScenarioCa
         onCommentsCountChange={setCommentsCount}
         onFlip={() => setIsFlipped(false)}
         onEdit={onEdit}
+        onEditScenario={item.related_agreement_id ? () => setEditOpen(true) : undefined}
       />
     )
   }
@@ -124,9 +127,19 @@ export function DoneScenarioCard({ item, onEdit, currentUserId }: DoneScenarioCa
             onToggleComments={() => setShowComments(!showComments)}
             onFlip={() => setIsFlipped(true)}
             onCommentsCountChange={setCommentsCount}
+            onEditScenario={item.related_agreement_id ? () => setEditOpen(true) : undefined}
           />
         </div>
       </CardContent>
+
+      {item.related_agreement_id && (
+        <ScenarioEditSheet
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          item={item}
+          agreementId={item.related_agreement_id}
+        />
+      )}
     </Card>
   )
 }

@@ -197,6 +197,47 @@ export interface ScenarioResponse {
   created_at: string
 }
 
+export interface AgreementCollaborator {
+  id: string
+  agreement_id: string
+  user_id: string
+  role: 'owner' | 'collaborator'
+  added_at: string
+  profile?: Profile
+}
+
+export interface FeedItemDraft {
+  id: string
+  feed_item_id: string | null
+  agreement_id: string
+  proposed_by: string
+  draft_title: string
+  draft_content: string | null
+  draft_question: string | null
+  draft_options: string[] | null
+  draft_tagged_products: string[]
+  draft_tagged_hubs: string[]
+  draft_image_url: string | null
+  status: 'pending' | 'approved' | 'rejected' | 'withdrawn'
+  approvals_needed: number
+  approvals_received: number
+  change_summary: string | null
+  created_at: string
+  updated_at: string
+  proposed_by_profile?: Profile
+  approvals?: DraftApproval[]
+}
+
+export interface DraftApproval {
+  id: string
+  draft_id: string
+  user_id: string
+  approved: boolean
+  comment: string | null
+  created_at: string
+  profile?: Profile
+}
+
 // Aggregated types for the Bulk-Matching Engine
 export interface AggregatedDemand {
   product_name: string
