@@ -26,7 +26,15 @@ type ViewMode = 'pending' | 'done'
 type DoneFilter = 'all' | 'answered' | 'skipped'
 
 export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnboarding = false }: FeedContainerProps) {
-  const [items, setItems] = useState<FeedItem[]>(initialItems)
+  // Deduplicate on init -- server could send overlapping items if queries overlap
+  const [items, setItems] = useState<FeedItem[]>(() => {
+    const seen = new Set<string>()
+    return initialItems.filter(i => {
+      if (seen.has(i.id)) return false
+      seen.add(i.id)
+      return true
+    })
+  })
   const [isLoading, setIsLoading] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [showAll, setShowAll] = useState(false)
@@ -61,11 +69,11 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
       .eq('feed_item_id', item.id)
 
     // Move from done back to pending, mark as edited-out from server list
+    // IMPORTANT: filter out any existing entry with same ID before adding to prevent duplicate keys
     startTransition(() => {
       setEditedOutIds(prev => new Set(prev).add(item.id))
       setSessionDone(prev => prev.filter(d => d.id !== item.id))
-      // Put back in pending with prior answer metadata intact
-      setItems(prev => [item, ...prev])
+      setItems(prev => [item, ...prev.filter(i => i.id !== item.id)])
       setViewMode('pending')
       setShowAll(false)
     })
@@ -130,6 +138,7 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
     }
 
     // Move item to done, remove from pending, clear edited-out flag, auto-collapse
+    // Per dev rules: deduplicate both lists on every transition to prevent ghost entries
     const sourceItem = items.find(i => i.id === itemId)
     startTransition(() => {
       setItems(prev => prev.filter(i => i.id !== itemId))
