@@ -452,12 +452,10 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
       {viewMode === 'done' && (() => {
         const skippedItems = allDoneItems.filter(i => i._responseType === 'discard')
         const answeredItems = allDoneItems.filter(i => i._responseType !== 'discard')
+        const hasBoth = skippedItems.length > 0 && answeredItems.length > 0
 
-        // Auto-reset filter if it points to an empty category
-        const effectiveFilter = 
-          (doneFilter === 'skipped' && skippedItems.length === 0) ? 'all' :
-          (doneFilter === 'answered' && answeredItems.length === 0) ? 'all' :
-          doneFilter
+        // Only filter when both categories exist; otherwise just show all
+        const effectiveFilter = hasBoth ? doneFilter : 'all'
 
         const filteredDone = effectiveFilter === 'answered'
           ? answeredItems
@@ -467,8 +465,8 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
 
         return (
           <div className="space-y-2">
-            {/* Sub-filters -- always show when 2+ done items exist so user can always navigate */}
-            {allDoneItems.length > 1 && (
+            {/* Sub-filters only when both categories have items -- otherwise no point */}
+            {hasBoth && (
               <div className="flex gap-1">
                 <button
                   onClick={() => setDoneFilter(effectiveFilter === 'answered' ? 'all' : 'answered')}
@@ -476,8 +474,7 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
                     'rounded-full px-2 py-0.5 text-xs font-medium transition-colors',
                     effectiveFilter === 'answered'
                       ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground hover:text-foreground',
-                    answeredItems.length === 0 && 'opacity-40 pointer-events-none'
+                      : 'bg-muted text-muted-foreground hover:text-foreground'
                   )}
                 >
                   Answered
@@ -494,8 +491,7 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
                     'rounded-full px-2 py-0.5 text-xs font-medium transition-colors',
                     effectiveFilter === 'skipped'
                       ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground hover:text-foreground',
-                    skippedItems.length === 0 && 'opacity-40 pointer-events-none'
+                      : 'bg-muted text-muted-foreground hover:text-foreground'
                   )}
                 >
                   Skipped

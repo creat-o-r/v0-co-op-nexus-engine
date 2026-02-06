@@ -64,10 +64,10 @@ Write out the paths as a comment block:
 - List mutations (adding/removing items from arrays, updating Sets) CAN be deferred inside `startTransition`.
 - Getting this wrong causes intermediate renders where the old view shows with the item already removed = broken UI.
 
-**8. Sub-filter chips must survive empty categories**
-- Show sub-filter chips based on `allDoneItems.length > 1`, NOT `category1.length > 0 && category2.length > 0`.
-- When a category empties, grey out its chip (`opacity-40 pointer-events-none`) but keep it visible.
-- This prevents chips from vanishing and taking the entire nav with them.
+**8. Sub-filters only when useful**
+- Show sub-filter chips ONLY when both categories have items (`answered > 0 && skipped > 0`).
+- When one category empties, remove the sub-filters entirely -- the user is just looking at "Done", no filtering needed.
+- Force `effectiveFilter` to `'all'` when `hasBoth` is false so stale filter state can't hide items.
 
 ## UX: Everything is Navigable
 
