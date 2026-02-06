@@ -63,22 +63,26 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
   ]
 
   // Edit handler: move a done item back to pending for re-answering
+  // CRITICAL: viewMode and doneFilter set OUTSIDE startTransition so they apply immediately.
+  // startTransition defers low-priority updates -- if viewMode is deferred, the done view
+  // flashes an intermediate state with the item removed but view still on 'done'.
   const handleEditDone = useCallback(async (item: DoneItem) => {
-    // Delete the existing response from the DB
     await supabase
       .from('scenario_responses')
       .delete()
       .eq('user_id', userProfile?.id)
       .eq('feed_item_id', item.id)
 
-    // Move from done back to pending, mark as edited-out from server list
-    // IMPORTANT: filter out any existing entry with same ID before adding to prevent duplicate keys
+    // Immediate: switch view so user never sees stale done state
+    setViewMode('pending')
+    setShowAll(false)
+    setDoneFilter('all')
+
+    // Deferred: update lists (can batch with React)
     startTransition(() => {
       setEditedOutIds(prev => new Set(prev).add(item.id))
       setSessionDone(prev => prev.filter(d => d.id !== item.id))
       setItems(prev => [item, ...prev.filter(i => i.id !== item.id)])
-      setViewMode('pending')
-      setShowAll(false)
     })
   }, [supabase, userProfile])
 
@@ -448,48 +452,56 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
       {viewMode === 'done' && (() => {
         const skippedItems = allDoneItems.filter(i => i._responseType === 'discard')
         const answeredItems = allDoneItems.filter(i => i._responseType !== 'discard')
-        // Toggle chips: tap active to deselect (show all). No separate "All" chip.
-        const filteredDone = doneFilter === 'answered'
+
+        // Auto-reset filter if it points to an empty category
+        const effectiveFilter = 
+          (doneFilter === 'skipped' && skippedItems.length === 0) ? 'all' :
+          (doneFilter === 'answered' && answeredItems.length === 0) ? 'all' :
+          doneFilter
+
+        const filteredDone = effectiveFilter === 'answered'
           ? answeredItems
-          : doneFilter === 'skipped'
+          : effectiveFilter === 'skipped'
             ? skippedItems
             : allDoneItems
 
         return (
           <div className="space-y-2">
-            {/* Sub-filters: Answered / Skipped -- toggle on/off, no "All" */}
-            {answeredItems.length > 0 && skippedItems.length > 0 && (
+            {/* Sub-filters -- always show when 2+ done items exist so user can always navigate */}
+            {allDoneItems.length > 1 && (
               <div className="flex gap-1">
                 <button
-                  onClick={() => setDoneFilter(doneFilter === 'answered' ? 'all' : 'answered')}
+                  onClick={() => setDoneFilter(effectiveFilter === 'answered' ? 'all' : 'answered')}
                   className={cn(
                     'rounded-full px-2 py-0.5 text-xs font-medium transition-colors',
-                    doneFilter === 'answered'
+                    effectiveFilter === 'answered'
                       ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground hover:text-foreground'
+                      : 'bg-muted text-muted-foreground hover:text-foreground',
+                    answeredItems.length === 0 && 'opacity-40 pointer-events-none'
                   )}
                 >
                   Answered
                   <span className={cn(
                     'ml-1 tabular-nums',
-                    doneFilter === 'answered' ? 'text-primary-foreground/70' : 'opacity-50'
+                    effectiveFilter === 'answered' ? 'text-primary-foreground/70' : 'opacity-50'
                   )}>
                     {answeredItems.length}
                   </span>
                 </button>
                 <button
-                  onClick={() => setDoneFilter(doneFilter === 'skipped' ? 'all' : 'skipped')}
+                  onClick={() => setDoneFilter(effectiveFilter === 'skipped' ? 'all' : 'skipped')}
                   className={cn(
                     'rounded-full px-2 py-0.5 text-xs font-medium transition-colors',
-                    doneFilter === 'skipped'
+                    effectiveFilter === 'skipped'
                       ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground hover:text-foreground'
+                      : 'bg-muted text-muted-foreground hover:text-foreground',
+                    skippedItems.length === 0 && 'opacity-40 pointer-events-none'
                   )}
                 >
                   Skipped
                   <span className={cn(
                     'ml-1 tabular-nums',
-                    doneFilter === 'skipped' ? 'text-primary-foreground/70' : 'opacity-50'
+                    effectiveFilter === 'skipped' ? 'text-primary-foreground/70' : 'opacity-50'
                   )}>
                     {skippedItems.length}
                   </span>
@@ -498,9 +510,7 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
             )}
 
             {filteredDone.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
-                {doneFilter === 'skipped' ? 'No skipped items.' : doneFilter === 'answered' ? 'No answered items.' : 'No items yet.'}
-              </p>
+              <p className="py-8 text-center text-sm text-muted-foreground">No items yet.</p>
             ) : (
               filteredDone.map((item) => (
                 <DoneScenarioCard

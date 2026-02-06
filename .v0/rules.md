@@ -56,6 +56,18 @@ Write out the paths as a comment block:
 **6. Stale filter state**
 - When an item transitions between categories, any active filter that would HIDE the new category must be reset.
 - Example: user is viewing "Skipped" filter, edits last skipped item, answers it -> it's now "Answered". If filter stays on "Skipped", the done view shows empty. Reset filter to show all.
+- Auto-reset: if `doneFilter` points to an empty category, the render must auto-fallback to 'all'. Never show "No items" when items exist in the other category.
+
+**7. startTransition timing**
+- `startTransition` defers state updates. NEVER put view-switching state (`viewMode`, `doneFilter`) inside `startTransition`.
+- View switches and filter resets MUST be synchronous (outside `startTransition`) so the user sees the new view immediately.
+- List mutations (adding/removing items from arrays, updating Sets) CAN be deferred inside `startTransition`.
+- Getting this wrong causes intermediate renders where the old view shows with the item already removed = broken UI.
+
+**8. Sub-filter chips must survive empty categories**
+- Show sub-filter chips based on `allDoneItems.length > 1`, NOT `category1.length > 0 && category2.length > 0`.
+- When a category empties, grey out its chip (`opacity-40 pointer-events-none`) but keep it visible.
+- This prevents chips from vanishing and taking the entire nav with them.
 
 ## UX: Everything is Navigable
 
