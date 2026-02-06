@@ -88,7 +88,7 @@ export function AppHeader({ user, onSignOut }: AppHeaderProps) {
                 <DropdownMenuContent align="end" className="w-56">
                   <div className="flex flex-col gap-1 p-2">
                     <p className="font-medium">{user.display_name || "Member"}</p>
-                    <p className="text-xs text-muted-foreground">Trust: {user.trust_score}</p>
+                    <p className="text-xs text-muted-foreground">Trust: {user.trust_points}</p>
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>

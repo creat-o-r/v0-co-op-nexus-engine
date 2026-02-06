@@ -25,20 +25,7 @@ import {
   Loader2 
 } from "lucide-react";
 import { formatRelativeTime } from "@/lib/utils/date";
-import type { Profile } from "@/lib/types/database";
-
-interface LogisticsRoute {
-  id: string;
-  driver_id: string;
-  origin_location: string;
-  destination_location: string;
-  via_locations: string[];
-  departure_time: string;
-  available_capacity: string;
-  vehicle_type: string;
-  status: string;
-  driver: Profile;
-}
+import type { LogisticsRoute } from "@/lib/types/database";
 
 interface LogisticsListProps {
   routes: LogisticsRoute[];
@@ -105,47 +92,50 @@ export function LogisticsList({ routes, userId }: LogisticsListProps) {
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 {/* Route Info */}
                 <div className="flex-1">
+                  <div className="mb-1 text-sm font-medium text-muted-foreground">{route.route_name}</div>
                   <div className="mb-2 flex items-center gap-2 text-lg font-semibold">
                     <MapPin className="h-4 w-4 text-primary" />
-                    <span>{route.origin_location}</span>
+                    <span>{route.start_hub}</span>
                     <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                    <span>{route.destination_location}</span>
+                    <span>{route.end_hub}</span>
                   </div>
                   
-                  {route.via_locations && route.via_locations.length > 0 && (
+                  {route.waypoints && route.waypoints.length > 0 && (
                     <p className="mb-2 text-sm text-muted-foreground">
-                      Via: {route.via_locations.join(" → ")}
+                      Via: {route.waypoints.join(" → ")}
                     </p>
                   )}
 
                   <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      {formatRelativeTime(route.departure_time)}
-                    </div>
+                    {route.schedule && route.schedule.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-4 w-4" />
+                        {route.schedule.join(", ")}
+                      </div>
+                    )}
                     <div className="flex items-center gap-1">
                       <Package className="h-4 w-4" />
-                      {route.available_capacity}
+                      {route.max_cargo_size}
                     </div>
-                    <Badge variant="outline" className="capitalize">
-                      {route.vehicle_type}
-                    </Badge>
+                    {route.willing_to_detour && (
+                      <Badge variant="outline">Willing to detour</Badge>
+                    )}
                   </div>
                 </div>
 
                 {/* Driver Info */}
                 <div className="flex items-center gap-3">
                   <Avatar>
-                    <AvatarImage src={route.driver?.avatar_url || undefined} />
+                    <AvatarImage src={route.profile?.avatar_url || undefined} />
                     <AvatarFallback>
-                      {route.driver?.display_name?.charAt(0) || "D"}
+                      {route.profile?.display_name?.charAt(0) || "D"}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-medium">{route.driver?.display_name || "Driver"}</p>
+                    <p className="font-medium">{route.profile?.display_name || "Driver"}</p>
                     <div className="flex items-center gap-1 text-sm text-primary">
                       <Shield className="h-3 w-3" />
-                      Trust: {route.driver?.trust_score || 0}
+                      Trust: {route.profile?.trust_points || 0}
                     </div>
                   </div>
                 </div>
@@ -161,7 +151,7 @@ export function LogisticsList({ routes, userId }: LogisticsListProps) {
           <DialogHeader>
             <DialogTitle>Request Pickup</DialogTitle>
             <DialogDescription>
-              Ask {selectedRoute?.driver?.display_name} to pick up items along their route
+              Ask {selectedRoute?.profile?.display_name} to pick up items along their route
             </DialogDescription>
           </DialogHeader>
 
@@ -169,18 +159,20 @@ export function LogisticsList({ routes, userId }: LogisticsListProps) {
             <div className="rounded-lg border p-4">
               <div className="mb-2 flex items-center gap-2 font-medium">
                 <MapPin className="h-4 w-4 text-primary" />
-                {selectedRoute?.origin_location}
+                {selectedRoute?.start_hub}
                 <ArrowRight className="h-4 w-4" />
-                {selectedRoute?.destination_location}
+                {selectedRoute?.end_hub}
               </div>
               <div className="flex gap-4 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Clock className="h-4 w-4" />
-                  {selectedRoute && formatRelativeTime(selectedRoute.departure_time)}
-                </span>
+                {selectedRoute?.schedule && selectedRoute.schedule.length > 0 && (
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-4 w-4" />
+                    {selectedRoute.schedule.join(", ")}
+                  </span>
+                )}
                 <span className="flex items-center gap-1">
                   <Package className="h-4 w-4" />
-                  {selectedRoute?.available_capacity}
+                  {selectedRoute?.max_cargo_size}
                 </span>
               </div>
             </div>

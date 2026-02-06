@@ -24,18 +24,18 @@ export default async function CommunityPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Fetch top members by trust score
+  // Fetch top members by trust points
   const { data: topMembers } = await supabase
     .from("profiles")
     .select("*")
-    .order("trust_score", { ascending: false })
+    .order("trust_points", { ascending: false })
     .limit(10);
 
-  // Fetch pickup points
+  // Fetch distribution hubs
   const { data: pickupPoints } = await supabase
     .from("profiles")
     .select("*")
-    .eq("is_pickup_point", true)
+    .eq("is_distribution_hub", true)
     .limit(6);
 
   // Fetch discussions
@@ -141,23 +141,23 @@ export default async function CommunityPage() {
                       <div className="flex-1">
                         <p className="font-medium">{member.display_name || "Member"}</p>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          {member.is_pickup_point && (
+                          {member.is_distribution_hub && (
                             <Badge variant="secondary" className="gap-1 text-xs">
                               <MapPin className="h-3 w-3" />
                               Hub
                             </Badge>
                           )}
-                          {member.is_producer && (
+                          {member.neighborhood_hub && (
                             <Badge variant="secondary" className="gap-1 text-xs">
-                              <Leaf className="h-3 w-3" />
-                              Producer
+                              <MapPin className="h-3 w-3" />
+                              {member.neighborhood_hub}
                             </Badge>
                           )}
                         </div>
                       </div>
                       <div className="flex items-center gap-1 text-primary">
                         <Star className="h-4 w-4 fill-primary" />
-                        <span className="font-bold">{member.trust_score}</span>
+                        <span className="font-bold">{member.trust_points}</span>
                       </div>
                     </div>
                   ))}
@@ -185,15 +185,15 @@ export default async function CommunityPage() {
                     </Avatar>
                     <div className="flex-1">
                       <p className="font-medium">{hub.display_name || "Pickup Hub"}</p>
-                      {hub.location && (
+                      {hub.neighborhood_hub && (
                         <p className="flex items-center gap-1 text-sm text-muted-foreground">
                           <MapPin className="h-3 w-3" />
-                          {hub.location}
+                          {hub.neighborhood_hub}
                         </p>
                       )}
                       <div className="mt-1 flex items-center gap-1 text-sm text-primary">
                         <Shield className="h-3 w-3" />
-                        Trust: {hub.trust_score}
+                        Trust: {hub.trust_points}
                       </div>
                     </div>
                     <Button variant="outline" size="sm">
@@ -235,7 +235,7 @@ export default async function CommunityPage() {
                     <div className="mt-2 flex items-center gap-4 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Users className="h-4 w-4" />
-                        {discussion.discussion_metadata?.replies || 0} replies
+                        {discussion.comments_count || 0} replies
                       </span>
                     </div>
                   </div>

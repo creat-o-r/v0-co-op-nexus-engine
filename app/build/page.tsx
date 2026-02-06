@@ -15,10 +15,10 @@ export default async function BuildPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Fetch build tasks from feed
+  // Fetch build tasks from feed with related agreement data
   const { data: buildTasks, error } = await supabase
     .from("feed_items")
-    .select("*")
+    .select("*, agreement:agreements!feed_items_related_agreement_id_fkey(*)")
     .eq("feed_type", "build")
     .order("is_pinned", { ascending: false })
     .order("created_at", { ascending: false });

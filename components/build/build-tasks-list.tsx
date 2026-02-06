@@ -85,9 +85,12 @@ export function BuildTasksList({ tasks, userId, claimedTasks }: BuildTasksListPr
     <div className="grid gap-4 sm:grid-cols-2">
       {tasks.map((task) => {
         const isClaimed = localClaimed.includes(task.id);
-        const metadata = task.build_metadata || {};
-        const progress = metadata.current_volunteers ? 
-          (metadata.current_volunteers / (metadata.volunteers_needed || 1)) * 100 : 0;
+        const agreement = task.agreement;
+        const talent = agreement?.required_talent?.toLowerCase() || "tech";
+        const trustReward = agreement?.reward_trust_points || 5;
+        const progress = agreement?.batch_threshold
+          ? (agreement.current_volume / agreement.batch_threshold) * 100
+          : 0;
         
         return (
           <Card key={task.id} className="transition-all hover:border-primary/50 hover:shadow-md">
@@ -95,15 +98,15 @@ export function BuildTasksList({ tasks, userId, claimedTasks }: BuildTasksListPr
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-lg">
-                    {skillIcons[metadata.skill_required || "tech"] || skillIcons.tech}
+                    {skillIcons[talent] || skillIcons.tech}
                   </div>
                   <Badge variant="outline" className="capitalize">
-                    {metadata.skill_required || "general"}
+                    {agreement?.required_talent || "General"}
                   </Badge>
                 </div>
                 <div className="flex items-center gap-1 text-sm font-medium text-primary">
                   <Star className="h-4 w-4 fill-primary" />
-                  +{metadata.trust_reward || 5}
+                  +{trustReward}
                 </div>
               </div>
               <CardTitle className="mt-2 text-lg">{task.title}</CardTitle>
@@ -113,26 +116,26 @@ export function BuildTasksList({ tasks, userId, claimedTasks }: BuildTasksListPr
             </CardHeader>
             <CardContent className="pt-0">
               {/* Progress */}
-              {metadata.volunteers_needed && (
+              {agreement?.batch_threshold && (
                 <div className="mb-4">
                   <div className="mb-1 flex items-center justify-between text-sm">
                     <span className="flex items-center gap-1 text-muted-foreground">
                       <Users className="h-4 w-4" />
-                      Volunteers
+                      Progress
                     </span>
                     <span className="font-medium">
-                      {metadata.current_volunteers || 0} / {metadata.volunteers_needed}
+                      {agreement.current_volume || 0} / {agreement.batch_threshold}
                     </span>
                   </div>
                   <Progress value={progress} className="h-2" />
                 </div>
               )}
 
-              {/* Time estimate */}
-              {metadata.time_estimate && (
+              {/* Deadline */}
+              {agreement?.deadline && (
                 <div className="mb-4 flex items-center gap-1 text-sm text-muted-foreground">
                   <Clock className="h-4 w-4" />
-                  Estimated: {metadata.time_estimate}
+                  Deadline: {new Date(agreement.deadline).toLocaleDateString()}
                 </div>
               )}
 

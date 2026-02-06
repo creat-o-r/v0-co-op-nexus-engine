@@ -14,15 +14,15 @@ export default async function LogisticsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Fetch active logistics routes
+  // Fetch active logistics routes with driver profile
   const { data: routes, error } = await supabase
     .from("logistics_routes")
     .select(`
       *,
-      driver:profiles!logistics_routes_driver_id_fkey(id, display_name, avatar_url, trust_score)
+      profile:profiles!logistics_routes_user_id_fkey(id, display_name, avatar_url, trust_points, neighborhood_hub)
     `)
-    .eq("status", "scheduled")
-    .order("departure_time", { ascending: true });
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
 
   if (error) {
     console.error("[v0] Error fetching routes:", error);
@@ -32,12 +32,12 @@ export default async function LogisticsPage() {
   const { count: totalRoutes } = await supabase
     .from("logistics_routes")
     .select("*", { count: "exact", head: true })
-    .eq("status", "scheduled");
+    .eq("is_active", true);
 
   const { count: activeHubs } = await supabase
     .from("profiles")
     .select("*", { count: "exact", head: true })
-    .eq("is_pickup_point", true);
+    .eq("is_distribution_hub", true);
 
   return (
     <main className="min-h-screen pb-20 md:pb-8">
