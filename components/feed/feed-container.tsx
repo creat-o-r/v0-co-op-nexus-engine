@@ -294,6 +294,7 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
             item={item}
             onLike={handleScenarioLike}
             onDiscard={handleScenarioDiscard}
+            currentUserId={userProfile?.id}
             initialSelection={priorAnswer}
           />
         )

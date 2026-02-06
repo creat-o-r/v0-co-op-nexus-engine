@@ -4,19 +4,21 @@ import { useState, useCallback, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Check, X, ChevronRight, PenLine } from 'lucide-react'
+import { Check, X, ChevronRight, PenLine, MessageCircle, BarChart3 } from 'lucide-react'
 import type { FeedItem } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
+import { CommentThread } from './comment-thread'
 
 interface ScenarioCardProps {
   item: FeedItem
   onLike: (itemId: string, selectedOption?: string) => Promise<void>
   onDiscard: (itemId: string) => Promise<void>
+  currentUserId?: string
   /** Pre-fill from a prior answer (comma-separated string or null) */
   initialSelection?: string | null
 }
 
-export function ScenarioCard({ item, onLike, onDiscard, initialSelection }: ScenarioCardProps) {
+export function ScenarioCard({ item, onLike, onDiscard, currentUserId, initialSelection }: ScenarioCardProps) {
   const options = item.scenario_options || []
 
   // Parse initial selection: split by comma, separate known options from "other" text
@@ -33,6 +35,8 @@ export function ScenarioCard({ item, onLike, onDiscard, initialSelection }: Scen
   const [isAnimating, setIsAnimating] = useState<'like' | 'discard' | null>(null)
   const [otherText, setOtherText] = useState(parsedInitial.other)
   const [showOtherInput, setShowOtherInput] = useState(parsedInitial.other.length > 0)
+  const [showComments, setShowComments] = useState(false)
+  const [commentsCount, setCommentsCount] = useState(item.comments_count)
 
   // Detect multi-select from the question text itself (seed data uses "Select all that apply")
   const multiSelect = useMemo(() => {
@@ -102,6 +106,20 @@ export function ScenarioCard({ item, onLike, onDiscard, initialSelection }: Scen
               {item.tagged_products[0]}
             </span>
           )}
+          <span className="flex-1" />
+          <button
+            onClick={() => setShowComments(!showComments)}
+            className={cn(
+              'flex items-center gap-1 px-1.5 py-0.5 rounded-full transition-colors',
+              showComments
+                ? 'text-primary bg-primary/10'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+            aria-label="Toggle discussion"
+          >
+            <MessageCircle className="h-3.5 w-3.5" />
+            {commentsCount > 0 && <span className="text-[10px] tabular-nums">{commentsCount}</span>}
+          </button>
         </div>
         <CardTitle className="text-base text-balance leading-snug">{item.title}</CardTitle>
       </CardHeader>
@@ -203,6 +221,18 @@ export function ScenarioCard({ item, onLike, onDiscard, initialSelection }: Scen
             <ChevronRight className="h-3.5 w-3.5 ml-1" />
           </Button>
         </div>
+
+        {/* Comment thread */}
+        {showComments && (
+          <div className="pt-3 border-t border-border">
+            <CommentThread
+              feedItemId={item.id}
+              currentUserId={currentUserId}
+              commentsCount={commentsCount}
+              onCountChange={setCommentsCount}
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
   )

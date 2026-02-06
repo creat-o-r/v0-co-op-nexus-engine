@@ -74,6 +74,37 @@ export function ScenarioCardBack({ item, currentUserId, onFlip, onEdit }: Scenar
                 {item.tagged_products[0]}
               </span>
             )}
+            <span className="flex-1" />
+            {/* Chat */}
+            <button
+              onClick={() => setShowComments(!showComments)}
+              className={cn(
+                'flex items-center gap-1 px-1.5 py-0.5 rounded-full transition-colors',
+                showComments
+                  ? 'text-primary bg-primary/10'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+              aria-label="Toggle discussion"
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              {commentsCount > 0 && <span className="text-[10px] tabular-nums">{commentsCount}</span>}
+            </button>
+            {/* Flip back */}
+            <button
+              onClick={onFlip}
+              className="flex items-center px-1.5 py-0.5 rounded-full text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Back to front"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+            </button>
+            {/* Edit */}
+            <button
+              onClick={() => onEdit(item)}
+              className="flex items-center px-1.5 py-0.5 rounded-full text-muted-foreground hover:text-foreground transition-colors"
+              aria-label={item._responseType === 'discard' ? 'Answer' : 'Edit response'}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
           </div>
           <p className="text-sm font-medium text-foreground leading-snug">
             {item.title}
@@ -183,46 +214,9 @@ export function ScenarioCardBack({ item, currentUserId, onFlip, onEdit }: Scenar
           </div>
         )}
 
-        {/* Action footer -- same pattern as front */}
-        <div className="flex items-center justify-between pt-2.5 border-t border-border">
-          <div className="flex items-center gap-1">
-            {/* Chat toggle */}
-            <button
-              onClick={() => setShowComments(!showComments)}
-              className={cn(
-                'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-colors',
-                showComments
-                  ? 'text-primary bg-primary/10'
-                  : 'text-muted-foreground hover:bg-muted'
-              )}
-            >
-              <MessageCircle className="h-3.5 w-3.5" />
-              <span>{commentsCount > 0 ? commentsCount : ''}</span>
-            </button>
-
-            {/* Flip back to front */}
-            <button
-              onClick={onFlip}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs text-muted-foreground hover:bg-muted transition-colors"
-              aria-label="Back to front"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-            </button>
-          </div>
-
-          {/* Edit */}
-          <button
-            onClick={() => onEdit(item)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs text-muted-foreground hover:bg-muted transition-colors"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-            <span>{item._responseType === 'discard' ? 'Answer' : 'Edit'}</span>
-          </button>
-        </div>
-
         {/* Comment thread */}
         {showComments && (
-          <div className="pt-3">
+          <div className="pt-3 border-t border-border">
             <CommentThread
               feedItemId={item.id}
               currentUserId={currentUserId}
