@@ -54,14 +54,24 @@ export default async function FeedPage() {
     return true;
   });
 
+  const displayName = userProfile?.display_name;
+  const pendingCount = filteredItems.filter((i: FeedItem) => i.feed_type === "scenario").length;
+
   return (
     <main className="min-h-screen pb-20 md:pb-8">
-      <div className="mx-auto max-w-2xl px-4 py-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-foreground">Action Feed</h1>
-          <p className="text-sm text-muted-foreground">
-            Discover opportunities, answer scenarios, and connect with your local food community
-          </p>
+      <div className="mx-auto max-w-2xl px-4 pt-4 pb-6">
+        {/* Compact header row */}
+        <div className="mb-4 flex items-baseline justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-semibold text-foreground">
+              {displayName ? `Hey ${displayName}` : "Action Feed"}
+            </h1>
+          </div>
+          {pendingCount > 0 && (
+            <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+              {pendingCount} pending
+            </span>
+          )}
         </div>
         
         <FeedContainer 

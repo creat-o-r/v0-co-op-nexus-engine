@@ -275,40 +275,52 @@ export function FeedContainer({ initialItems, userProfile, isOnboarding = false 
     )
   }
 
-  // Current position for the x/y counter
-  const currentIndex = showAll ? displayItems.length : 1
+  // Answered count = initial total minus remaining
+  const answeredCount = initialItems.length - displayItems.length
+  const totalCount = initialItems.length
 
   return (
-    <div className="space-y-4">
-      {/* Compact x / y counter */}
+    <div className="space-y-3">
+      {visibleItems.map(renderFeedItem)}
+
+      {/* Counter + expand — always below the card(s) */}
       {displayItems.length > 1 && (
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>
-            <span className="font-medium text-foreground">{currentIndex}</span>
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{answeredCount}</span>
             {' / '}
-            <span className="font-medium text-foreground">{displayItems.length}</span>
+            <span className="font-medium text-foreground">{totalCount}</span>
+            {' done'}
           </span>
-          {pinned && (
-            <span className="flex items-center gap-1 text-primary">
+
+          {!showAll && hiddenCount > 0 && (
+            <button
+              onClick={handleExpand}
+              className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-primary"
+            >
+              {hiddenCount} more
+              <ChevronDown className="h-3 w-3" />
+            </button>
+          )}
+
+          {pinned && showAll && (
+            <span className="flex items-center gap-1 text-xs text-primary">
               <Pin className="h-3 w-3" />
-              Expanded
+              Pinned
             </span>
           )}
         </div>
       )}
 
-      {visibleItems.map(renderFeedItem)}
-      
-      {/* Expand prompt + pin offer */}
-      {!showAll && hiddenCount > 0 && (
-        <div className="space-y-2">
-          <button
-            onClick={handleExpand}
-            className="flex w-full items-center justify-center gap-1.5 py-2 text-xs text-muted-foreground transition-colors hover:text-primary"
-          >
-            <ChevronDown className="h-3.5 w-3.5" />
-            {hiddenCount} more {hiddenCount === 1 ? 'item' : 'items'}
-          </button>
+      {/* Single-item fallback: still show counter */}
+      {displayItems.length === 1 && totalCount > 1 && (
+        <div className="px-1">
+          <span className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{answeredCount}</span>
+            {' / '}
+            <span className="font-medium text-foreground">{totalCount}</span>
+            {' done'}
+          </span>
         </div>
       )}
 
@@ -323,7 +335,7 @@ export function FeedContainer({ initialItems, userProfile, isOnboarding = false 
               className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
               onClick={() => setShowPinPrompt(false)}
             >
-              No thanks
+              Dismiss
             </Button>
             <Button
               size="sm"
