@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Loader2, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from '@/lib/utils/date'
-import { ItemLinks, ProductPill } from './item-links'
+import { ItemLinks, ProductPill, AnswerPreview } from './item-links'
 import { ScenarioBottomBar } from './scenario-bottom-bar'
 import type { DoneItem } from './done-scenario-card'
 import type { FeedItem } from '@/lib/types/database'
@@ -132,15 +132,25 @@ export function ScenarioCardBack({
           </div>
           <p className="text-sm font-medium text-foreground leading-snug">{item.title}</p>
 
-          {userAnswer && !wasSkipped && (
-            <div className="mt-1.5 flex flex-wrap gap-1">
-              {userAnswer.split(', ').filter(Boolean).map((answer) => (
-                <span key={answer} className="inline-block rounded-full bg-primary/8 px-2 py-0.5 text-xs text-primary/80">
-                  {answer}
-                </span>
-              ))}
-            </div>
-          )}
+          {userAnswer && !wasSkipped && (() => {
+            const answers = userAnswer.split(', ').filter(Boolean)
+            return (
+              <div className="mt-1.5 space-y-1.5">
+                <div className="flex flex-wrap gap-1">
+                  {answers.map((answer) => (
+                    <span key={answer} className="inline-block rounded-full bg-primary/8 px-2 py-0.5 text-xs text-primary/80">
+                      {answer}
+                    </span>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {answers.map((answer) => (
+                    <AnswerPreview key={`bp-${answer}`} name={answer} />
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
 
           <p className="text-[10px] text-muted-foreground mt-1">
             Created {formatDistanceToNow(new Date(item.created_at))}

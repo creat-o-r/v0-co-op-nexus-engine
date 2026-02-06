@@ -32,16 +32,62 @@ export interface Profile {
   updated_at: string
 }
 
+export interface ProductTypeGroup {
+  id: string
+  name: string
+  category: string
+  created_at: string
+  // Inherited from child products at query time
+  image_url?: string | null
+  description?: string | null
+  product_count?: number
+  products?: Product[]
+}
+
 export interface Product {
   id: string
   name: string
   description: string | null
   category: string
   product_type: ProductType
+  product_type_id: string | null
   ingredients: string[]
   unit: string
   image_url: string | null
   created_at: string
+}
+
+export interface FeedItem {
+  id: string
+  user_id: string
+  feed_type: FeedType
+  title: string
+  content: string | null
+  image_url: string | null
+  related_product_id: string | null
+  related_product_type_id: string | null
+  related_agreement_id: string | null
+  related_surplus_id: string | null
+  related_need_id: string | null
+  related_route_id: string | null
+  scenario_question: string | null
+  scenario_options: string[] | null
+  likes_count: number
+  comments_count: number
+  tagged_hubs: string[]
+  tagged_products: string[]
+  is_pinned: boolean
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  profile?: Profile
+  product?: Product
+  product_type?: ProductTypeGroup
+  agreement?: Agreement
+  surplus?: UserSurplus
+  need?: UserNeed
+  route?: LogisticsRoute
+  user_interaction?: FeedInteraction | null
 }
 
 export interface UserNeed {
@@ -115,37 +161,6 @@ export interface Agreement {
   creator_profile?: Profile
   assignee_profile?: Profile
   product?: Product
-}
-
-export interface FeedItem {
-  id: string
-  user_id: string
-  feed_type: FeedType
-  title: string
-  content: string | null
-  image_url: string | null
-  related_product_id: string | null
-  related_agreement_id: string | null
-  related_surplus_id: string | null
-  related_need_id: string | null
-  related_route_id: string | null
-  scenario_question: string | null
-  scenario_options: string[] | null
-  likes_count: number
-  comments_count: number
-  tagged_hubs: string[]
-  tagged_products: string[]
-  is_pinned: boolean
-  is_active: boolean
-  created_at: string
-  updated_at: string
-  profile?: Profile
-  product?: Product
-  agreement?: Agreement
-  surplus?: UserSurplus
-  need?: UserNeed
-  route?: LogisticsRoute
-  user_interaction?: FeedInteraction | null
 }
 
 export interface FeedInteraction {

@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import type { FeedItem } from '@/lib/types/database'
 import { ScenarioCardBack } from './scenario-card-back'
 import { ScenarioBottomBar } from './scenario-bottom-bar'
-import { ProductPill } from './item-links'
+import { ProductPill, LabelPreview, AnswerPreview } from './item-links'
 
 export interface DoneItem extends FeedItem {
   _userAnswer: string | null
@@ -83,15 +83,30 @@ export function DoneScenarioCard({ item, onEdit, currentUserId }: DoneScenarioCa
 
             <p className="text-sm font-medium text-foreground leading-snug">{item.title}</p>
 
+            {/* Product type preview on done front */}
+            {item.tagged_products?.length > 0 && (
+              <div className="mt-2">
+                <LabelPreview name={item.tagged_products[0]} />
+              </div>
+            )}
+
             {wasSkipped ? (
               <p className="mt-1.5 text-xs text-muted-foreground">Skipped</p>
             ) : answers.length > 0 ? (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {answers.map((answer) => (
-                  <span key={answer} className="inline-block rounded-full bg-primary/8 px-2 py-0.5 text-xs text-primary/80">
-                    {answer}
-                  </span>
-                ))}
+              <div className="mt-2 space-y-1.5">
+                <div className="flex flex-wrap gap-1">
+                  {answers.map((answer) => (
+                    <span key={answer} className="inline-block rounded-full bg-primary/8 px-2 py-0.5 text-xs text-primary/80">
+                      {answer}
+                    </span>
+                  ))}
+                </div>
+                {/* Nested answer previews: show preview for answers that match product types */}
+                <div className="flex flex-wrap gap-1.5">
+                  {answers.map((answer) => (
+                    <AnswerPreview key={`preview-${answer}`} name={answer} />
+                  ))}
+                </div>
               </div>
             ) : (
               <p className="mt-1 text-xs text-muted-foreground">Confirmed</p>

@@ -9,7 +9,7 @@ import type { FeedItem } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
 import { ScenarioCardBackContent } from './scenario-card-back'
 import { ScenarioBottomBar } from './scenario-bottom-bar'
-import { ProductPill } from './item-links'
+import { ProductPill, LabelPreview } from './item-links'
 
 interface ScenarioCardProps {
   item: FeedItem
@@ -121,6 +121,11 @@ export function ScenarioCard({ item, onLike, onDiscard, currentUserId, initialSe
       <CardContent className="space-y-3 px-4 pb-4">
         {item.scenario_question && (
           <p className="text-sm font-medium text-foreground leading-snug">{item.scenario_question}</p>
+        )}
+
+        {/* Product type preview on front */}
+        {item.tagged_products?.length > 0 && (
+          <LabelPreview name={item.tagged_products[0]} />
         )}
 
         {options.length > 0 && (
