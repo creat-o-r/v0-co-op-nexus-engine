@@ -5,6 +5,7 @@ import { MapPin, Package, Hammer, Truck, HelpCircle, ExternalLink, Loader2 } fro
 import type { FeedItem } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
 import useSWR from 'swr'
+import { AgreementDetailCard } from './agreement-detail-card'
 
 /* ── Shared types & fetcher ────────────────────────────────── */
 
@@ -252,10 +253,8 @@ export function ItemLinks({ item, exclude = [] }: ItemLinksProps) {
         />
       ))}
 
-      {hasAgreement && (
-        <LinkPreviewCard
-          url={`/api/feed/preview?type=agreement&id=${item.related_agreement_id}`}
-        />
+      {hasAgreement && item.related_agreement_id && (
+        <AgreementDetailCard agreementId={item.related_agreement_id} />
       )}
 
       {hasRoute && (
