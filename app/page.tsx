@@ -230,6 +230,31 @@ export default async function HomePage() {
             Building resilient local food systems, together.
           </p>
         </div>
+
+        {/* Temporary dev nav -- all pages */}
+        <div className="mx-auto mt-6 max-w-5xl border-t border-dashed border-muted-foreground/30 pt-4">
+          <p className="mb-2 text-center text-xs font-medium uppercase tracking-wider text-muted-foreground/60">Dev Nav</p>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {[
+              { href: "/", label: "Home" },
+              { href: "/feed", label: "Feed" },
+              { href: "/products", label: "Products" },
+              { href: "/logistics", label: "Logistics" },
+              { href: "/build", label: "Build" },
+              { href: "/community", label: "Community" },
+              { href: "/auth/login", label: "Login" },
+              { href: "/auth/sign-up", label: "Sign Up" },
+            ].map(({ href, label }) => (
+              <Link
+                key={href}
+                href={href}
+                className="rounded-full border border-dashed border-muted-foreground/40 px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              >
+                {label}
+              </Link>
+            ))}
+          </div>
+        </div>
       </footer>
     </main>
   );
