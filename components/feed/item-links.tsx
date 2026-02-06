@@ -236,15 +236,11 @@ interface ItemLinksProps {
 }
 
 export function ItemLinks({ item, exclude = [] }: ItemLinksProps) {
-  const products = (item.tagged_products || []).filter(p => !exclude.includes(p))
-  const hubs = item.tagged_hubs || []
+  const extraProducts = (item.tagged_products || []).filter(p => !exclude.includes(p))
   const hasAgreement = !!item.related_agreement_id
   const hasRoute = !!item.related_route_id
 
-  // Skip first product (shown as LabelPreview on front already)
-  const extraProducts = products.slice(1)
-
-  const hasLinks = extraProducts.length > 0 || hasAgreement || hasRoute || hubs.length > 0
+  const hasLinks = extraProducts.length > 0 || hasAgreement || hasRoute
   if (!hasLinks) return null
 
   return (
@@ -266,14 +262,6 @@ export function ItemLinks({ item, exclude = [] }: ItemLinksProps) {
         <LinkPreviewCard
           url={`/api/feed/preview?type=route&id=${item.related_route_id}`}
         />
-      )}
-
-      {hubs.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {hubs.map((hub) => (
-            <HubPill key={hub} name={hub} />
-          ))}
-        </div>
       )}
     </div>
   )

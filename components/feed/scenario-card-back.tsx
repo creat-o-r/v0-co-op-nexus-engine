@@ -76,10 +76,10 @@ export function ScenarioCardBackContent({ item }: ScenarioCardBackContentProps) 
         )}
       </div>
 
-      {/* Links (shared component, excludes the product already in the badge row) */}
+      {/* Additional links (agreements, routes, extra products -- only if any exist) */}
       <ItemLinks
         item={item}
-        exclude={item.tagged_products?.length > 0 ? [item.tagged_products[0]] : []}
+        exclude={item.tagged_products || []}
       />
     </>
   )
