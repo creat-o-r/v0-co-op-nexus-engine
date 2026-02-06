@@ -16,17 +16,27 @@ import {
 } from "lucide-react";
 
 export default async function HomePage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  let user = null;
+  let productCount = 0;
+  let memberCount = 0;
 
-  // Get some stats
-  const { count: productCount } = await supabase
-    .from("products")
-    .select("*", { count: "exact", head: true });
+  try {
+    const supabase = await createClient();
+    const { data: { user: u } } = await supabase.auth.getUser();
+    user = u;
 
-  const { count: memberCount } = await supabase
-    .from("profiles")
-    .select("*", { count: "exact", head: true });
+    const { count: pc } = await supabase
+      .from("products")
+      .select("*", { count: "exact", head: true });
+    productCount = pc || 0;
+
+    const { count: mc } = await supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true });
+    memberCount = mc || 0;
+  } catch (err) {
+    console.error("[v0] HomePage error fetching data:", err);
+  }
 
   return (
     <main className="min-h-screen">
