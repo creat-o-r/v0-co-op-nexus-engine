@@ -9,6 +9,7 @@ import type { FeedItem } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
 import { ScenarioCardBackContent } from './scenario-card-back'
 import { ScenarioBottomBar } from './scenario-bottom-bar'
+import { ProductPill } from './item-links'
 
 interface ScenarioCardProps {
   item: FeedItem
@@ -111,9 +112,7 @@ export function ScenarioCard({ item, onLike, onDiscard, currentUserId, initialSe
         <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
           <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full font-medium">Scenario</span>
           {item.tagged_products.length > 0 && (
-            <span className="px-2 py-0.5 bg-accent/30 text-accent-foreground rounded-full">
-              {item.tagged_products[0]}
-            </span>
+            <ProductPill name={item.tagged_products[0]} />
           )}
         </div>
         <CardTitle className="text-base text-balance leading-snug">{item.title}</CardTitle>

@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import type { FeedItem } from '@/lib/types/database'
 import { ScenarioCardBack } from './scenario-card-back'
 import { ScenarioBottomBar } from './scenario-bottom-bar'
+import { ProductPill } from './item-links'
 
 export interface DoneItem extends FeedItem {
   _userAnswer: string | null
@@ -67,9 +68,7 @@ export function DoneScenarioCard({ item, onEdit, currentUserId }: DoneScenarioCa
             <div className="flex items-center gap-2 text-xs mb-1">
               <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full font-medium">Scenario</span>
               {item.tagged_products?.length > 0 && (
-                <span className="px-2 py-0.5 bg-accent/30 text-accent-foreground rounded-full">
-                  {item.tagged_products[0]}
-                </span>
+                <ProductPill name={item.tagged_products[0]} />
               )}
               <span className="flex-1" />
               <button

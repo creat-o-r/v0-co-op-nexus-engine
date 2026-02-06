@@ -1,142 +1,112 @@
 'use client'
 
-import { Badge } from '@/components/ui/badge'
-import { Link2, MapPin, Package, Hammer, Truck, HelpCircle } from 'lucide-react'
+import Link from 'next/link'
+import { MapPin, Package, Hammer, Truck, HelpCircle } from 'lucide-react'
 import type { FeedItem } from '@/lib/types/database'
 
 /**
- * Shared component for rendering linked items on any card type.
+ * Shared navigable links for any card type.
  *
- * Link sources (from FeedItem):
- *   - tagged_products[]   -> product name links
- *   - related_product_id  -> FK product link
- *   - related_agreement_id -> FK build task link
- *   - related_route_id    -> FK logistics route link
- *   - tagged_hubs[]       -> hub location links
+ * `exclude` removes items already displayed elsewhere on the card
+ * (e.g. tagged_products[0] shown as a pill in the badge row).
  *
- * `activeOption` narrows display to links relevant to a specific
- * scenario option selection (matched via tagged_products containing
- * the option text). When null, all links are shown.
+ * `activeOption` narrows product links to those matching a selection.
  */
 
 interface ItemLinksProps {
   item: FeedItem
-  /** If set, only show links relevant to this selected option */
+  /** Product names already shown elsewhere -- skip them here */
+  exclude?: string[]
+  /** If set, only show product links matching this option */
   activeOption?: string | null
-  /** Compact inline mode vs block mode */
-  inline?: boolean
 }
 
-export function ItemLinks({ item, activeOption, inline = false }: ItemLinksProps) {
-  const products = item.tagged_products || []
+export function ItemLinks({ item, exclude = [], activeOption }: ItemLinksProps) {
+  const products = (item.tagged_products || []).filter(p => !exclude.includes(p))
   const hubs = item.tagged_hubs || []
-  const hasProduct = !!item.related_product_id || products.length > 0
   const hasAgreement = !!item.related_agreement_id
   const hasRoute = !!item.related_route_id
-  const hasLinks = hasProduct || hasAgreement || hasRoute || hubs.length > 0
 
-  if (!hasLinks) return null
-
-  // When activeOption is set, filter tagged_products to those matching
-  // the option text (case-insensitive partial match). This supports
-  // the pattern where specific scenario options link to specific products.
+  // Filter products by active option when set
   const filteredProducts = activeOption
-    ? products.filter(
-        (p) =>
-          p.toLowerCase().includes(activeOption.toLowerCase()) ||
-          activeOption.toLowerCase().includes(p.toLowerCase())
+    ? products.filter(p =>
+        p.toLowerCase().includes(activeOption.toLowerCase()) ||
+        activeOption.toLowerCase().includes(p.toLowerCase())
       )
     : products
+  const displayProducts = activeOption && filteredProducts.length === 0 ? products : filteredProducts
 
-  // If filtering is active and nothing matched, show all (fallback)
-  const displayProducts = activeOption && filteredProducts.length === 0
-    ? products
-    : filteredProducts
-
-  if (inline) {
-    return (
-      <div className="flex flex-wrap items-center gap-1.5">
-        {displayProducts.map((product) => (
-          <Badge
-            key={product}
-            variant="secondary"
-            className="gap-1 text-[10px] py-0 px-1.5 text-secondary-foreground"
-          >
-            <Package className="h-2.5 w-2.5" />
-            {product}
-          </Badge>
-        ))}
-        {hasAgreement && (
-          <Badge variant="secondary" className="gap-1 text-[10px] py-0 px-1.5 text-secondary-foreground">
-            <Hammer className="h-2.5 w-2.5" />
-            Build
-          </Badge>
-        )}
-        {hasRoute && (
-          <Badge variant="secondary" className="gap-1 text-[10px] py-0 px-1.5 text-secondary-foreground">
-            <Truck className="h-2.5 w-2.5" />
-            Route
-          </Badge>
-        )}
-        {hubs.map((hub) => (
-          <Badge
-            key={hub}
-            variant="outline"
-            className="gap-1 text-[10px] py-0 px-1.5 text-foreground border-border"
-          >
-            <MapPin className="h-2.5 w-2.5" />
-            {hub}
-          </Badge>
-        ))}
-      </div>
-    )
-  }
+  const hasLinks = displayProducts.length > 0 || hasAgreement || hasRoute || hubs.length > 0
+  if (!hasLinks) return null
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Link2 className="h-3 w-3" />
-        <span className="font-medium">Linked</span>
-        {activeOption && (
-          <span className="text-[10px] text-primary/70">
-            for &ldquo;{activeOption}&rdquo;
-          </span>
-        )}
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        {displayProducts.map((product) => (
-          <Badge
-            key={product}
-            variant="secondary"
-            className="gap-1 text-xs text-secondary-foreground"
-          >
-            <Package className="h-3 w-3" />
-            {product}
-          </Badge>
-        ))}
-        {hasAgreement && (
-          <Badge variant="secondary" className="gap-1 text-xs text-secondary-foreground">
-            <Hammer className="h-3 w-3" />
-            Build Task
-          </Badge>
-        )}
-        {hasRoute && (
-          <Badge variant="secondary" className="gap-1 text-xs text-secondary-foreground">
-            <Truck className="h-3 w-3" />
-            Route
-          </Badge>
-        )}
-        {hubs.map((hub) => (
-          <Badge
-            key={hub}
-            variant="outline"
-            className="gap-1 text-xs text-foreground border-border"
-          >
-            <MapPin className="h-3 w-3" />
-            {hub}
-          </Badge>
-        ))}
-      </div>
+    <div className="flex flex-wrap gap-1.5">
+      {displayProducts.map((product) => (
+        <Link
+          key={product}
+          href={`/products?search=${encodeURIComponent(product)}`}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+        >
+          <Package className="h-3 w-3" />
+          {product}
+        </Link>
+      ))}
+      {hasAgreement && (
+        <Link
+          href={`/build?highlight=${item.related_agreement_id}`}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-warning/10 text-warning-foreground hover:bg-warning/20 transition-colors"
+        >
+          <Hammer className="h-3 w-3" />
+          Build Task
+        </Link>
+      )}
+      {hasRoute && (
+        <Link
+          href={`/logistics?highlight=${item.related_route_id}`}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-info/10 text-info-foreground hover:bg-info/20 transition-colors"
+        >
+          <Truck className="h-3 w-3" />
+          Route
+        </Link>
+      )}
+      {hubs.map((hub) => (
+        <Link
+          key={hub}
+          href={`/community?hub=${encodeURIComponent(hub)}`}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border border-border text-foreground hover:bg-muted transition-colors"
+        >
+          <MapPin className="h-3 w-3" />
+          {hub}
+        </Link>
+      ))}
     </div>
+  )
+}
+
+/**
+ * Navigable tagged-product pill for badge rows.
+ * Use instead of a static <span> so the product is clickable.
+ */
+export function ProductPill({ name }: { name: string }) {
+  return (
+    <Link
+      href={`/products?search=${encodeURIComponent(name)}`}
+      className="px-2 py-0.5 bg-accent/30 text-accent-foreground rounded-full text-xs hover:bg-accent/50 transition-colors"
+    >
+      {name}
+    </Link>
+  )
+}
+
+/** Navigable hub pill */
+export function HubPill({ name }: { name: string }) {
+  return (
+    <Link
+      href={`/community?hub=${encodeURIComponent(name)}`}
+      className="px-2 py-0.5 border border-border text-foreground rounded-full text-xs hover:bg-muted transition-colors inline-flex items-center gap-1"
+    >
+      <MapPin className="h-2.5 w-2.5" />
+      {name}
+    </Link>
   )
 }

@@ -9,6 +9,7 @@ import { Heart, MessageCircle, MapPin, ShieldCheck, Leaf } from 'lucide-react'
 import type { FeedItem } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
 import { CommentThread } from './comment-thread'
+import Link from 'next/link'
 
 interface ProductCardProps {
   item: FeedItem
@@ -88,16 +89,22 @@ export function ProductCard({ item, onLike, currentUserId, onContact }: ProductC
             <div>
               <p className="font-medium text-sm text-foreground">{profile?.display_name || 'Anonymous'}</p>
               {profile?.neighborhood_hub && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Link
+                  href={`/community?hub=${encodeURIComponent(profile.neighborhood_hub)}`}
+                  className="text-xs text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors"
+                >
                   <MapPin className="h-3 w-3" />
                   {profile.neighborhood_hub}
-                </p>
+                </Link>
               )}
             </div>
           </div>
-          <Badge variant="outline" className="shrink-0 text-foreground border-border">
+          <Link
+            href={`/products?category=${encodeURIComponent(item.product?.category || 'Product')}`}
+            className="shrink-0 px-2.5 py-0.5 border border-border rounded-full text-xs text-foreground hover:bg-muted transition-colors"
+          >
             {item.product?.category || 'Product'}
-          </Badge>
+          </Link>
         </div>
         
         <CardTitle className="text-lg mt-3 text-foreground">{item.title}</CardTitle>

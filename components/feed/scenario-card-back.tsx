@@ -4,7 +4,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Loader2, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from '@/lib/utils/date'
-import { ItemLinks } from './item-links'
+import { ItemLinks, ProductPill } from './item-links'
 import { ScenarioBottomBar } from './scenario-bottom-bar'
 import type { DoneItem } from './done-scenario-card'
 import type { FeedItem } from '@/lib/types/database'
@@ -76,8 +76,11 @@ export function ScenarioCardBackContent({ item }: ScenarioCardBackContentProps) 
         )}
       </div>
 
-      {/* Links (shared component) */}
-      <ItemLinks item={item} />
+      {/* Links (shared component, excludes the product already in the badge row) */}
+      <ItemLinks
+        item={item}
+        exclude={item.tagged_products?.length > 0 ? [item.tagged_products[0]] : []}
+      />
     </>
   )
 }
@@ -115,9 +118,7 @@ export function ScenarioCardBack({
           <div className="flex items-center gap-2 text-xs mb-1.5">
             <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full font-medium">Scenario</span>
             {item.tagged_products?.length > 0 && (
-              <span className="px-2 py-0.5 bg-accent/30 text-accent-foreground rounded-full">
-                {item.tagged_products[0]}
-              </span>
+              <ProductPill name={item.tagged_products[0]} />
             )}
             <span className="flex-1" />
             <button

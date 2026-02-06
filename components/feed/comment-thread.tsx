@@ -196,10 +196,13 @@ export function CommentThread({
                     {comment.profile?.display_name || 'Community Member'}
                   </span>
                   {comment.profile?.neighborhood_hub && (
-                    <span className="hidden sm:flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                    <a
+                      href={`/community?hub=${encodeURIComponent(comment.profile.neighborhood_hub)}`}
+                      className="hidden sm:flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                    >
                       <MapPin className="h-2.5 w-2.5" />
                       {comment.profile.neighborhood_hub}
-                    </span>
+                    </a>
                   )}
                   <span className="text-[10px] text-muted-foreground">
                     {formatDistanceToNow(new Date(comment.created_at))}

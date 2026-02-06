@@ -3,13 +3,14 @@
 import { useState } from 'react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Heart, MessageCircle, Share2, MapPin, MoreHorizontal } from 'lucide-react'
 import type { FeedItem } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from '@/lib/utils/date'
 import { CommentThread } from './comment-thread'
+import { ProductPill, HubPill } from './item-links'
+import Link from 'next/link'
 
 interface DiscussionCardProps {
   item: FeedItem
@@ -53,10 +54,13 @@ export function DiscussionCard({ item, onLike, currentUserId, onShare }: Discuss
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 {profile?.neighborhood_hub && (
                   <>
-                    <span className="flex items-center gap-1">
+                    <Link
+                      href={`/community?hub=${encodeURIComponent(profile.neighborhood_hub)}`}
+                      className="flex items-center gap-1 hover:text-foreground transition-colors"
+                    >
                       <MapPin className="h-3 w-3" />
                       {profile.neighborhood_hub}
-                    </span>
+                    </Link>
                     <span>·</span>
                   </>
                 )}
@@ -93,15 +97,10 @@ export function DiscussionCard({ item, onLike, currentUserId, onShare }: Discuss
         {(item.tagged_products.length > 0 || item.tagged_hubs.length > 0) && (
           <div className="flex flex-wrap gap-2">
             {item.tagged_products.map((product) => (
-              <Badge key={product} variant="secondary" className="text-secondary-foreground">
-                #{product}
-              </Badge>
+              <ProductPill key={product} name={product} />
             ))}
             {item.tagged_hubs.map((hub) => (
-              <Badge key={hub} variant="outline" className="text-foreground border-border">
-                <MapPin className="h-3 w-3 mr-1" />
-                {hub}
-              </Badge>
+              <HubPill key={hub} name={hub} />
             ))}
           </div>
         )}
