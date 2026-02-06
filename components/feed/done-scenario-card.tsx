@@ -51,6 +51,16 @@ export function DoneScenarioCard({ item, onEdit }: DoneScenarioCardProps) {
 
           {/* Content */}
           <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 text-xs mb-1">
+              <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full font-medium">
+                Scenario
+              </span>
+              {item.tagged_products?.length > 0 && (
+                <span className="px-2 py-0.5 bg-accent/30 text-accent-foreground rounded-full">
+                  {item.tagged_products[0]}
+                </span>
+              )}
+            </div>
             <p className="text-sm font-medium text-foreground leading-snug">
               {item.title}
             </p>
