@@ -147,16 +147,14 @@ export function DiscussionCard({ item, onLike, currentUserId, onShare }: Discuss
           )}
         </div>
 
-        {/* Comment thread */}
+        {/* Comment thread -- opens directly below engagement bar */}
         {showComments && (
-          <div className="pt-3">
-            <CommentThread
-              feedItemId={item.id}
-              currentUserId={currentUserId}
-              commentsCount={commentsCount}
-              onCountChange={setCommentsCount}
-            />
-          </div>
+          <CommentThread
+            feedItemId={item.id}
+            currentUserId={currentUserId}
+            commentsCount={commentsCount}
+            onCountChange={setCommentsCount}
+          />
         )}
       </CardContent>
     </Card>

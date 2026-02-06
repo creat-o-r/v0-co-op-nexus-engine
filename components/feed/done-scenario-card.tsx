@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { CheckCircle2, SkipForward, Pencil, BarChart3, MessageCircle } from 'lucide-react'
+import { CheckCircle2, SkipForward, Pencil, BarChart3, MessageCircle, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FeedItem } from '@/lib/types/database'
 import { ScenarioCardBack } from './scenario-card-back'
@@ -26,12 +26,16 @@ export function DoneScenarioCard({ item, onEdit, currentUserId }: DoneScenarioCa
   const wasSkipped = item._responseType === 'discard'
   const answers = item._userAnswer?.split(', ').filter(Boolean) || []
 
-  // Show the back view (votes + linkings)
+  // Back view (votes + linkings)
   if (isFlipped) {
     return (
       <ScenarioCardBack
         item={item}
         currentUserId={currentUserId}
+        showComments={showComments}
+        commentsCount={commentsCount}
+        onToggleComments={() => setShowComments(!showComments)}
+        onCommentsCountChange={setCommentsCount}
         onFlip={() => setIsFlipped(false)}
         onEdit={onEdit}
       />
@@ -66,7 +70,7 @@ export function DoneScenarioCard({ item, onEdit, currentUserId }: DoneScenarioCa
 
           {/* Question + answer */}
           <div className="min-w-0 flex-1">
-            {/* Badge row with inline actions */}
+            {/* Badge row -- edit at top right */}
             <div className="flex items-center gap-2 text-xs mb-1">
               <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full font-medium">
                 Scenario
@@ -77,35 +81,13 @@ export function DoneScenarioCard({ item, onEdit, currentUserId }: DoneScenarioCa
                 </span>
               )}
               <span className="flex-1" />
-              {/* Chat */}
-              <button
-                onClick={() => setShowComments(!showComments)}
-                className={cn(
-                  'flex items-center gap-1 px-1.5 py-0.5 rounded-full transition-colors',
-                  showComments
-                    ? 'text-primary bg-primary/10'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-                aria-label="Toggle discussion"
-              >
-                <MessageCircle className="h-3.5 w-3.5" />
-                {commentsCount > 0 && <span className="text-[10px] tabular-nums">{commentsCount}</span>}
-              </button>
-              {/* Flip to votes */}
-              <button
-                onClick={() => setIsFlipped(true)}
-                className="flex items-center px-1.5 py-0.5 rounded-full text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="View votes"
-              >
-                <BarChart3 className="h-3.5 w-3.5" />
-              </button>
-              {/* Edit */}
               <button
                 onClick={() => onEdit(item)}
-                className="flex items-center px-1.5 py-0.5 rounded-full text-muted-foreground hover:text-foreground transition-colors"
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 aria-label={wasSkipped ? 'Answer' : 'Edit response'}
               >
-                <Pencil className="h-3.5 w-3.5" />
+                <Pencil className="h-3 w-3" />
+                <span className="text-[10px]">{wasSkipped ? 'Answer' : 'Edit'}</span>
               </button>
             </div>
 
@@ -136,9 +118,33 @@ export function DoneScenarioCard({ item, onEdit, currentUserId }: DoneScenarioCa
           </div>
         </div>
 
+        {/* Bottom bar: chat + flip */}
+        <div className="flex items-center gap-2 pt-2.5 mt-2.5 border-t border-border">
+          <button
+            onClick={() => setShowComments(!showComments)}
+            className={cn(
+              'flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs transition-colors',
+              showComments
+                ? 'text-primary bg-primary/10'
+                : 'text-muted-foreground hover:bg-muted'
+            )}
+          >
+            <MessageCircle className="h-3.5 w-3.5" />
+            <span>{commentsCount > 0 ? commentsCount : 'Discuss'}</span>
+          </button>
+
+          <button
+            onClick={() => setIsFlipped(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs text-muted-foreground hover:bg-muted transition-colors"
+          >
+            <BarChart3 className="h-3.5 w-3.5" />
+            <span>Votes</span>
+          </button>
+        </div>
+
         {/* Comment thread */}
         {showComments && (
-          <div className="pt-3 mt-3 border-t border-border">
+          <div className="pt-3 mt-1">
             <CommentThread
               feedItemId={item.id}
               currentUserId={currentUserId}

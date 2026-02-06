@@ -173,14 +173,12 @@ export function ProductCard({ item, onLike, currentUserId, onContact }: ProductC
 
         {/* Comment thread */}
         {showComments && (
-          <div className="pt-3">
-            <CommentThread
-              feedItemId={item.id}
-              currentUserId={currentUserId}
-              commentsCount={commentsCount}
-              onCountChange={setCommentsCount}
-            />
-          </div>
+          <CommentThread
+            feedItemId={item.id}
+            currentUserId={currentUserId}
+            commentsCount={commentsCount}
+            onCountChange={setCommentsCount}
+          />
         )}
       </CardContent>
     </Card>

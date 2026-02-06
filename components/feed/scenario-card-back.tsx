@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, RotateCcw, Link2, MapPin, Package, Hammer, Truck, MessageCircle, Pencil } from 'lucide-react'
@@ -20,6 +19,10 @@ interface VoteData {
 interface ScenarioCardBackProps {
   item: DoneItem
   currentUserId?: string
+  showComments: boolean
+  commentsCount: number
+  onToggleComments: () => void
+  onCommentsCountChange: (count: number) => void
   onFlip: () => void
   onEdit: (item: DoneItem) => void
 }
@@ -30,9 +33,16 @@ const voteFetcher = async (url: string) => {
   return res.json() as Promise<VoteData>
 }
 
-export function ScenarioCardBack({ item, currentUserId, onFlip, onEdit }: ScenarioCardBackProps) {
-  const [showComments, setShowComments] = useState(false)
-  const [commentsCount, setCommentsCount] = useState(item.comments_count)
+export function ScenarioCardBack({
+  item,
+  currentUserId,
+  showComments,
+  commentsCount,
+  onToggleComments,
+  onCommentsCountChange,
+  onFlip,
+  onEdit,
+}: ScenarioCardBackProps) {
   const { data: votes, isLoading: votesLoading } = useSWR<VoteData>(
     `/api/scenarios/votes?feedItemId=${item.id}`,
     voteFetcher,
@@ -42,11 +52,8 @@ export function ScenarioCardBack({ item, currentUserId, onFlip, onEdit }: Scenar
   const userAnswer = item._userAnswer
   const wasSkipped = item._responseType === 'discard'
 
-  // Determine which options exist
   const options = item.scenario_options || []
   const optionCounts = votes?.optionCounts || {}
-
-  // Max count for bar scaling
   const maxOptionCount = Math.max(1, ...Object.values(optionCounts))
 
   // Linked items
@@ -63,7 +70,7 @@ export function ScenarioCardBack({ item, currentUserId, onFlip, onEdit }: Scenar
         : 'border-border bg-card'
     )}>
       <CardContent className="px-4 py-4 space-y-4">
-        {/* Question context + back button */}
+        {/* Question context -- edit at top right */}
         <div>
           <div className="flex items-center gap-2 text-xs mb-1.5">
             <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full font-medium">
@@ -75,35 +82,13 @@ export function ScenarioCardBack({ item, currentUserId, onFlip, onEdit }: Scenar
               </span>
             )}
             <span className="flex-1" />
-            {/* Chat */}
-            <button
-              onClick={() => setShowComments(!showComments)}
-              className={cn(
-                'flex items-center gap-1 px-1.5 py-0.5 rounded-full transition-colors',
-                showComments
-                  ? 'text-primary bg-primary/10'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-              aria-label="Toggle discussion"
-            >
-              <MessageCircle className="h-3.5 w-3.5" />
-              {commentsCount > 0 && <span className="text-[10px] tabular-nums">{commentsCount}</span>}
-            </button>
-            {/* Flip back */}
-            <button
-              onClick={onFlip}
-              className="flex items-center px-1.5 py-0.5 rounded-full text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Back to front"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-            </button>
-            {/* Edit */}
             <button
               onClick={() => onEdit(item)}
-              className="flex items-center px-1.5 py-0.5 rounded-full text-muted-foreground hover:text-foreground transition-colors"
-              aria-label={item._responseType === 'discard' ? 'Answer' : 'Edit response'}
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              aria-label={wasSkipped ? 'Answer' : 'Edit response'}
             >
-              <Pencil className="h-3.5 w-3.5" />
+              <Pencil className="h-3 w-3" />
+              <span className="text-[10px]">{wasSkipped ? 'Answer' : 'Edit'}</span>
             </button>
           </div>
           <p className="text-sm font-medium text-foreground leading-snug">
@@ -145,7 +130,7 @@ export function ScenarioCardBack({ item, currentUserId, onFlip, onEdit }: Scenar
                 />
               </div>
 
-              {/* Per-option breakdown (if options exist) */}
+              {/* Per-option breakdown */}
               {options.length > 0 && Object.keys(optionCounts).length > 0 && (
                 <div className="pt-2 space-y-1.5">
                   <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
@@ -214,14 +199,38 @@ export function ScenarioCardBack({ item, currentUserId, onFlip, onEdit }: Scenar
           </div>
         )}
 
+        {/* Bottom bar: chat + flip back */}
+        <div className="flex items-center gap-2 pt-2 border-t border-border">
+          <button
+            onClick={onToggleComments}
+            className={cn(
+              'flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs transition-colors',
+              showComments
+                ? 'text-primary bg-primary/10'
+                : 'text-muted-foreground hover:bg-muted'
+            )}
+          >
+            <MessageCircle className="h-3.5 w-3.5" />
+            <span>{commentsCount > 0 ? commentsCount : 'Discuss'}</span>
+          </button>
+
+          <button
+            onClick={onFlip}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs text-muted-foreground hover:bg-muted transition-colors"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            <span>Back</span>
+          </button>
+        </div>
+
         {/* Comment thread */}
         {showComments && (
-          <div className="pt-3 border-t border-border">
+          <div className="pt-2">
             <CommentThread
               feedItemId={item.id}
               currentUserId={currentUserId}
               commentsCount={commentsCount}
-              onCountChange={setCommentsCount}
+              onCountChange={onCommentsCountChange}
             />
           </div>
         )}
