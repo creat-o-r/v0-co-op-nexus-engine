@@ -1,9 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, Hammer, Users, FileText, Shield, Clock } from 'lucide-react'
+import {
+  ChevronDown, ChevronUp, Hammer, Users, FileText,
+  Shield, Clock, Handshake, ArrowUpRight, Truck, ClipboardCheck,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
+import Link from 'next/link'
 import useSWR from 'swr'
 
 /* ── Types ─────────────────────────────────────────────── */
@@ -36,7 +41,49 @@ const fetcher = async (url: string) => {
   return res.json() as Promise<AgreementDetailData>
 }
 
-/* ── Status config ─────────────────────────────────────── */
+/* ── Config by agreement type ──────────────────────────── */
+
+const typeConfig: Record<string, {
+  icon: typeof Hammer
+  label: string
+  accent: string
+  accentBg: string
+  href: (id: string) => string
+  linkLabel: string
+}> = {
+  build_task: {
+    icon: Hammer,
+    label: 'Build Task',
+    accent: 'text-warning',
+    accentBg: 'bg-warning/5 border-warning/20',
+    href: (id) => `/build?highlight=${id}`,
+    linkLabel: 'Open in Build Board',
+  },
+  community_standard: {
+    icon: Handshake,
+    label: 'Community Agreement',
+    accent: 'text-primary',
+    accentBg: 'bg-primary/5 border-primary/20',
+    href: (id) => `/build?agreement=${id}`,
+    linkLabel: 'View Agreement',
+  },
+  trade_agreement: {
+    icon: Truck,
+    label: 'Trade Agreement',
+    accent: 'text-info',
+    accentBg: 'bg-info/5 border-info/20',
+    href: (id) => `/build?agreement=${id}`,
+    linkLabel: 'View Agreement',
+  },
+  verification_report: {
+    icon: ClipboardCheck,
+    label: 'Verification Report',
+    accent: 'text-emerald-600',
+    accentBg: 'bg-emerald-500/5 border-emerald-500/20',
+    href: (id) => `/build?agreement=${id}`,
+    linkLabel: 'View Report',
+  },
+}
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   proposed: { label: 'Proposed', color: 'bg-amber-500/15 text-amber-700' },
@@ -74,20 +121,22 @@ export function AgreementDetailCard({ agreementId }: AgreementDetailCardProps) {
 
   if (!data) return null
 
+  const type = typeConfig[data.agreement_type] || typeConfig.community_standard
   const status = statusConfig[data.status] || statusConfig.proposed
+  const Icon = type.icon
 
   return (
-    <div className={cn(
-      'rounded-lg border transition-all overflow-hidden',
-      'bg-warning/5 border-warning/20',
-    )}>
-      {/* Collapsed header -- always visible */}
+    <div className={cn('rounded-lg border transition-all overflow-hidden', type.accentBg)}>
+      {/* Collapsed header */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-warning/10 transition-colors"
+        className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-muted/30 transition-colors"
       >
-        <div className="flex items-center justify-center w-8 h-8 rounded-md bg-background shrink-0 text-warning">
-          <Hammer className="h-4 w-4" />
+        <div className={cn(
+          'flex items-center justify-center w-8 h-8 rounded-md bg-background shrink-0',
+          type.accent,
+        )}>
+          <Icon className="h-4 w-4" />
         </div>
 
         <div className="min-w-0 flex-1">
@@ -100,7 +149,8 @@ export function AgreementDetailCard({ agreementId }: AgreementDetailCardProps) {
             </span>
           </div>
           <p className="text-[10px] text-muted-foreground mt-0.5">
-            {data.collaborators.length} collaborator{data.collaborators.length !== 1 ? 's' : ''}
+            {type.label}
+            {data.collaborators.length > 0 && ` · ${data.collaborators.length} collaborator${data.collaborators.length !== 1 ? 's' : ''}`}
             {data.scenario_count > 0 && ` · ${data.scenario_count} scenario${data.scenario_count !== 1 ? 's' : ''}`}
           </p>
         </div>
@@ -114,7 +164,7 @@ export function AgreementDetailCard({ agreementId }: AgreementDetailCardProps) {
 
       {/* Expanded detail */}
       {expanded && (
-        <div className="px-3 pb-3 space-y-3 border-t border-warning/10">
+        <div className="px-3 pb-3 space-y-3 border-t border-border/30">
           {/* Description */}
           {data.description && (
             <p className="text-xs text-muted-foreground leading-relaxed pt-2">
@@ -141,45 +191,56 @@ export function AgreementDetailCard({ agreementId }: AgreementDetailCardProps) {
                 +{data.reward_trust_points} TP
               </span>
             )}
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-[10px] text-muted-foreground">
-              <FileText className="h-2.5 w-2.5" />
-              {data.agreement_type.replace(/_/g, ' ')}
-            </span>
           </div>
 
           {/* Collaborators */}
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-              <Users className="h-3 w-3" />
-              Collaborators
+          {data.collaborators.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                <Users className="h-3 w-3" />
+                Collaborators
+              </div>
+              <div className="space-y-1">
+                {data.collaborators.map((collab) => {
+                  const name = collab.profile?.display_name || 'Member'
+                  const initials = name.slice(0, 2).toUpperCase()
+                  return (
+                    <div key={collab.id} className="flex items-center gap-2">
+                      <Avatar className="h-5 w-5">
+                        <AvatarFallback className="text-[8px] bg-muted">
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-xs text-foreground">{name}</span>
+                      {collab.role === 'owner' && (
+                        <span className="px-1 py-0.5 rounded text-[9px] bg-primary/10 text-primary">
+                          owner
+                        </span>
+                      )}
+                      {collab.profile?.neighborhood_hub && (
+                        <span className="text-[10px] text-muted-foreground ml-auto">
+                          {collab.profile.neighborhood_hub}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-            <div className="space-y-1">
-              {data.collaborators.map((collab) => {
-                const name = collab.profile?.display_name || 'Member'
-                const initials = name.slice(0, 2).toUpperCase()
-                return (
-                  <div key={collab.id} className="flex items-center gap-2">
-                    <Avatar className="h-5 w-5">
-                      <AvatarFallback className="text-[8px] bg-muted">
-                        {initials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-xs text-foreground">{name}</span>
-                    {collab.role === 'owner' && (
-                      <span className="px-1 py-0.5 rounded text-[9px] bg-primary/10 text-primary">
-                        owner
-                      </span>
-                    )}
-                    {collab.profile?.neighborhood_hub && (
-                      <span className="text-[10px] text-muted-foreground ml-auto">
-                        {collab.profile.neighborhood_hub}
-                      </span>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+          )}
+
+          {/* Navigation button */}
+          <Link href={type.href(data.id)}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-2 text-xs mt-1"
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {type.linkLabel}
+              <ArrowUpRight className="h-3 w-3 ml-auto" />
+            </Button>
+          </Link>
         </div>
       )}
     </div>
