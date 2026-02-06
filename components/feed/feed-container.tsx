@@ -53,9 +53,12 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
   // Track IDs of server-loaded done items that have been edited out (moved back to pending)
   const [editedOutIds, setEditedOutIds] = useState<Set<string>>(new Set())
 
-  // Combine server done + session done, excluding items currently being re-edited
+  // Combine server done + session done.
+  // Session entries always win over server entries (fresher data).
+  // Also exclude items currently being re-edited (moved back to pending).
+  const sessionDoneIds = new Set(sessionDone.map(d => d.id))
   const allDoneItems = [
-    ...doneItems.filter(d => !editedOutIds.has(d.id)),
+    ...doneItems.filter(d => !editedOutIds.has(d.id) && !sessionDoneIds.has(d.id)),
     ...sessionDone,
   ]
 
