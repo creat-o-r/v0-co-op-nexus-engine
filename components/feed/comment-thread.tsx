@@ -81,11 +81,7 @@ export function CommentThread({
         body: JSON.stringify({ feedItemId, commentText: text }),
       })
 
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}))
-        console.log("[v0] Comment POST failed:", res.status, errBody)
-        throw new Error('Failed to post comment')
-      }
+      if (!res.ok) throw new Error('Failed to post comment')
 
       const { comment } = await res.json()
 

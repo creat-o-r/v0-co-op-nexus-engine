@@ -24,7 +24,6 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: true })
 
     if (error) {
-      console.log("[v0] Comments GET error:", error.message)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
@@ -86,7 +85,6 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (insertError) {
-      console.log("[v0] Comment insert error:", insertError.message, insertError.details, insertError.hint)
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 
