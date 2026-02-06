@@ -9,17 +9,20 @@ import { Heart, MessageCircle, Share2, MapPin, MoreHorizontal } from 'lucide-rea
 import type { FeedItem } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from '@/lib/utils/date'
+import { CommentThread } from './comment-thread'
 
 interface DiscussionCardProps {
   item: FeedItem
   onLike: (itemId: string) => Promise<void>
-  onComment?: (itemId: string) => void
+  currentUserId?: string
   onShare?: (itemId: string) => void
 }
 
-export function DiscussionCard({ item, onLike, onComment, onShare }: DiscussionCardProps) {
+export function DiscussionCard({ item, onLike, currentUserId, onShare }: DiscussionCardProps) {
   const [isLiked, setIsLiked] = useState(!!item.user_interaction)
   const [likesCount, setLikesCount] = useState(item.likes_count)
+  const [commentsCount, setCommentsCount] = useState(item.comments_count)
+  const [showComments, setShowComments] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const profile = item.profile
@@ -120,15 +123,18 @@ export function DiscussionCard({ item, onLike, onComment, onShare }: DiscussionC
               <span>{likesCount > 0 ? likesCount : ''}</span>
             </button>
             
-            {onComment && (
-              <button 
-                onClick={() => onComment(item.id)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-muted-foreground hover:bg-muted transition-colors"
-              >
-                <MessageCircle className="h-4 w-4" />
-                <span>{item.comments_count > 0 ? item.comments_count : ''}</span>
-              </button>
-            )}
+            <button 
+              onClick={() => setShowComments(!showComments)}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-colors',
+                showComments
+                  ? 'text-primary bg-primary/10'
+                  : 'text-muted-foreground hover:bg-muted'
+              )}
+            >
+              <MessageCircle className="h-4 w-4" />
+              <span>{commentsCount > 0 ? commentsCount : ''}</span>
+            </button>
           </div>
           
           {onShare && (
@@ -140,6 +146,18 @@ export function DiscussionCard({ item, onLike, onComment, onShare }: DiscussionC
             </button>
           )}
         </div>
+
+        {/* Comment thread */}
+        {showComments && (
+          <div className="pt-3">
+            <CommentThread
+              feedItemId={item.id}
+              currentUserId={currentUserId}
+              commentsCount={commentsCount}
+              onCountChange={setCommentsCount}
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
   )

@@ -304,6 +304,7 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
             key={item.id}
             item={item}
             onLike={handleProductLike}
+            currentUserId={userProfile?.id}
           />
         )
       case 'logistics':
@@ -331,6 +332,7 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
             key={item.id}
             item={item}
             onLike={handleProductLike}
+            currentUserId={userProfile?.id}
           />
         )
       default:
@@ -513,6 +515,7 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
                   key={item.id}
                   item={item as DoneItem}
                   onEdit={handleEditDone}
+                  currentUserId={userProfile?.id}
                 />
               ))
             )}

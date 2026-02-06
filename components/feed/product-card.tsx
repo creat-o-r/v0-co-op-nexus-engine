@@ -8,17 +8,20 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Heart, MessageCircle, MapPin, ShieldCheck, Leaf } from 'lucide-react'
 import type { FeedItem } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
+import { CommentThread } from './comment-thread'
 
 interface ProductCardProps {
   item: FeedItem
   onLike: (itemId: string) => Promise<void>
-  onComment?: (itemId: string) => void
+  currentUserId?: string
   onContact?: (itemId: string) => void
 }
 
-export function ProductCard({ item, onLike, onComment, onContact }: ProductCardProps) {
+export function ProductCard({ item, onLike, currentUserId, onContact }: ProductCardProps) {
   const [isLiked, setIsLiked] = useState(!!item.user_interaction)
   const [likesCount, setLikesCount] = useState(item.likes_count)
+  const [commentsCount, setCommentsCount] = useState(item.comments_count)
+  const [showComments, setShowComments] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const surplus = item.surplus
@@ -144,15 +147,18 @@ export function ProductCard({ item, onLike, onComment, onContact }: ProductCardP
               <Heart className={cn('h-5 w-5', isLiked && 'fill-current')} />
               <span>{likesCount}</span>
             </button>
-            {onComment && (
-              <button 
-                onClick={() => onComment(item.id)}
-                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <MessageCircle className="h-5 w-5" />
-                <span>{item.comments_count}</span>
-              </button>
-            )}
+            <button 
+              onClick={() => setShowComments(!showComments)}
+              className={cn(
+                'flex items-center gap-1.5 text-sm transition-colors',
+                showComments
+                  ? 'text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <MessageCircle className="h-5 w-5" />
+              <span>{commentsCount}</span>
+            </button>
           </div>
           {onContact && (
             <Button 
@@ -164,6 +170,18 @@ export function ProductCard({ item, onLike, onComment, onContact }: ProductCardP
             </Button>
           )}
         </div>
+
+        {/* Comment thread */}
+        {showComments && (
+          <div className="pt-3">
+            <CommentThread
+              feedItemId={item.id}
+              currentUserId={currentUserId}
+              commentsCount={commentsCount}
+              onCountChange={setCommentsCount}
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
   )
