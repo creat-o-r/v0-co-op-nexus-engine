@@ -12,16 +12,27 @@ interface ScenarioCardProps {
   item: FeedItem
   onLike: (itemId: string, selectedOption?: string) => Promise<void>
   onDiscard: (itemId: string) => Promise<void>
+  /** Pre-fill from a prior answer (comma-separated string or null) */
+  initialSelection?: string | null
 }
 
-export function ScenarioCard({ item, onLike, onDiscard }: ScenarioCardProps) {
-  const [selectedOptions, setSelectedOptions] = useState<string[]>([])
+export function ScenarioCard({ item, onLike, onDiscard, initialSelection }: ScenarioCardProps) {
+  const options = item.scenario_options || []
+
+  // Parse initial selection: split by comma, separate known options from "other" text
+  const parsedInitial = (() => {
+    if (!initialSelection) return { known: [] as string[], other: '' }
+    const parts = initialSelection.split(', ').filter(Boolean)
+    const known = parts.filter(p => options.includes(p))
+    const other = parts.filter(p => !options.includes(p)).join(', ')
+    return { known, other }
+  })()
+
+  const [selectedOptions, setSelectedOptions] = useState<string[]>(parsedInitial.known)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isAnimating, setIsAnimating] = useState<'like' | 'discard' | null>(null)
-  const [otherText, setOtherText] = useState('')
-  const [showOtherInput, setShowOtherInput] = useState(false)
-
-  const options = item.scenario_options || []
+  const [otherText, setOtherText] = useState(parsedInitial.other)
+  const [showOtherInput, setShowOtherInput] = useState(parsedInitial.other.length > 0)
 
   // Detect multi-select from the question text itself (seed data uses "Select all that apply")
   const multiSelect = useMemo(() => {

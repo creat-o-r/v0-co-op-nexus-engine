@@ -1,5 +1,56 @@
 # Co-Op Nexus Dev Rules
 
+## UX: Complete the Loop -- BLOCKING Requirement
+
+**Every feature that changes state MUST have all paths traced before any code is written.** This is not a suggestion. If even one path is unhandled, the feature is broken.
+
+### The State Transition Checklist (mandatory, no exceptions)
+
+For EVERY piece of state that moves between views, lists, or categories:
+
+**1. Forward path (A -> B)**
+- Does the destination render with ALL data? Not just the ID -- every field, every selection, every piece of metadata.
+- Are counts, filters, and badges in EVERY view updated?
+
+**2. Backward path (B -> A)**  
+- Does the source view restore the item with its prior state? Selections pre-filled, text inputs populated, "other" fields reopened.
+- Is the item removed from B completely? Check BOTH server-loaded data AND session/client data. Two sources = two cleanup paths.
+
+**3. Category change (e.g. skipped -> answered)**
+- If an item changes category mid-flow (skip it, edit it, answer it properly), does it move between sub-filters?
+- Do ALL filter counts update? Check: main chips, sub-filter chips, done badge count, pending counter.
+- Does the OLD category's count decrease AND the NEW category's count increase?
+
+**4. Re-entry (A -> B -> A -> B, the full loop)**
+- Second pass must be identical to first. No stale entries, no duplicates.
+- If the item existed in server-loaded data AND gets re-answered into session data, the server copy must be suppressed (editedOutIds pattern).
+
+**5. Data continuity**
+- ALL metadata travels with the item through every transition. If "Eggs, Milk" was selected and the user hits edit, "Eggs, Milk" must be pre-selected when the card reappears.
+- "Other" freeform text must also be restored, not just known options.
+
+### How to verify before coding
+
+Write out the paths as a comment block:
+```
+// Paths for [feature]:
+// 1. Answer card -> moves to done (answered) -> counts update -> card shows answer chips
+// 2. Skip card -> moves to done (skipped) -> counts update -> card shows dashed/muted
+// 3. Edit answered -> remove from done (both server + session) -> back in pending WITH prior selections -> answer again -> back in done, old entry gone
+// 4. Edit skipped -> remove from done -> back in pending (blank) -> answer -> now in done as "answered" not "skipped"
+// 5. Edit answered -> skip this time -> category changes from answered to skipped
+// 6. Edit skipped -> skip again -> stays skipped, no duplicate
+```
+
+**If you can't write all paths, you don't understand the feature yet. Stop and think before coding.**
+
+### Known patterns for this codebase
+
+- `editedOutIds: Set<string>` -- tracks server-loaded items that have been moved back to pending. Prevents ghosts.
+- `sessionDone: DoneItem[]` -- deduplicates on `.filter(d => d.id !== itemId)` before adding new entry. Prevents stale doubles.
+- `initialSelection` prop on cards -- carries prior answer forward when re-editing. Parses into known options + "other" text.
+- Sub-filter counts are derived from `allDoneItems` which already excludes edited-out items. No manual count adjustment needed.
+
 ## UX: Everything is Navigable
 
 Every displayed number, label, or count MUST be tappable and do something obvious.

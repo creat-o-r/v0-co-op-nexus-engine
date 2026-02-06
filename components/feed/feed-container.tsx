@@ -42,7 +42,14 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
 
   // Track items that were answered in this session (move to done)
   const [sessionDone, setSessionDone] = useState<DoneItem[]>([])
-  const allDoneItems = [...doneItems, ...sessionDone]
+  // Track IDs of server-loaded done items that have been edited out (moved back to pending)
+  const [editedOutIds, setEditedOutIds] = useState<Set<string>>(new Set())
+
+  // Combine server done + session done, excluding items currently being re-edited
+  const allDoneItems = [
+    ...doneItems.filter(d => !editedOutIds.has(d.id)),
+    ...sessionDone,
+  ]
 
   // Edit handler: move a done item back to pending for re-answering
   const handleEditDone = useCallback(async (item: DoneItem) => {
@@ -53,9 +60,11 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
       .eq('user_id', userProfile?.id)
       .eq('feed_item_id', item.id)
 
-    // Move from done back to pending
+    // Move from done back to pending, mark as edited-out from server list
     startTransition(() => {
+      setEditedOutIds(prev => new Set(prev).add(item.id))
       setSessionDone(prev => prev.filter(d => d.id !== item.id))
+      // Put back in pending with prior answer metadata intact
       setItems(prev => [item, ...prev])
       setViewMode('pending')
       setShowAll(false)
@@ -120,16 +129,26 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
         .eq('id', userProfile?.id)
     }
 
-    // Move item to done, remove from pending, auto-collapse
+    // Move item to done, remove from pending, clear edited-out flag, auto-collapse
     const sourceItem = items.find(i => i.id === itemId)
     startTransition(() => {
       setItems(prev => prev.filter(i => i.id !== itemId))
+      // Clear edited-out flag so it doesn't ghost in both lists
+      setEditedOutIds(prev => {
+        const next = new Set(prev)
+        next.delete(itemId)
+        return next
+      })
       if (sourceItem) {
-        setSessionDone(prev => [...prev, {
-          ...sourceItem,
-          _userAnswer: selectedOption || null,
-          _responseType: 'like',
-        }])
+        setSessionDone(prev => [
+          // Remove any stale session entry for this item (re-edit scenario)
+          ...prev.filter(d => d.id !== itemId),
+          {
+            ...sourceItem,
+            _userAnswer: selectedOption || null,
+            _responseType: 'like',
+          },
+        ])
       }
       collapseIfNeeded()
     })
@@ -145,12 +164,20 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
     const sourceItem = items.find(i => i.id === itemId)
     startTransition(() => {
       setItems(prev => prev.filter(i => i.id !== itemId))
+      setEditedOutIds(prev => {
+        const next = new Set(prev)
+        next.delete(itemId)
+        return next
+      })
       if (sourceItem) {
-        setSessionDone(prev => [...prev, {
-          ...sourceItem,
-          _userAnswer: null,
-          _responseType: 'discard',
-        }])
+        setSessionDone(prev => [
+          ...prev.filter(d => d.id !== itemId),
+          {
+            ...sourceItem,
+            _userAnswer: null,
+            _responseType: 'discard',
+          },
+        ])
       }
       collapseIfNeeded()
     })
@@ -250,6 +277,7 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
             item={item}
             onLike={handleScenarioLike}
             onDiscard={handleScenarioDiscard}
+            initialSelection={(item as DoneItem)._userAnswer}
           />
         )
       case 'product':
