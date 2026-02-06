@@ -35,30 +35,38 @@ export default async function FeedPage() {
     console.error("[v0] Error fetching feed items:", error);
   }
 
-  // Fetch user's scenario responses
-  let respondedScenarioIds: string[] = [];
+  // Fetch user's scenario responses with their answers
+  let scenarioResponses: { feed_item_id: string; selected_option: string | null; response_type: string }[] = [];
   if (user) {
     const { data: responses } = await supabase
       .from("scenario_responses")
-      .select("feed_item_id")
+      .select("feed_item_id, selected_option, response_type")
       .eq("user_id", user.id);
     
-    respondedScenarioIds = responses?.map(r => r.feed_item_id) || [];
+    scenarioResponses = responses || [];
   }
+
+  const respondedIds = new Set(scenarioResponses.map(r => r.feed_item_id));
+  const responseMap = Object.fromEntries(
+    scenarioResponses.map(r => [r.feed_item_id, { answer: r.selected_option, type: r.response_type }])
+  );
 
   const allItems = (feedItems || []) as FeedItem[];
 
   // Split into pending and done
   const pendingItems = allItems.filter((item) => {
-    if (item.feed_type === "scenario" && respondedScenarioIds.includes(item.id)) {
-      return false;
-    }
+    if (item.feed_type === "scenario" && respondedIds.has(item.id)) return false;
     return true;
   });
 
-  const doneItems = allItems.filter((item) =>
-    item.feed_type === "scenario" && respondedScenarioIds.includes(item.id)
-  );
+  // Done items include the user's response
+  const doneItems = allItems
+    .filter((item) => item.feed_type === "scenario" && respondedIds.has(item.id))
+    .map((item) => ({
+      ...item,
+      _userAnswer: responseMap[item.id]?.answer ?? null,
+      _responseType: responseMap[item.id]?.type ?? 'like',
+    }));
 
   return (
     <main className="min-h-screen pb-20 md:pb-8">

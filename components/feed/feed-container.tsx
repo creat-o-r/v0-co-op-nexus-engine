@@ -11,11 +11,11 @@ import type { FeedItem, FeedType, Profile, Talent } from '@/lib/types/database'
 import { Loader2, RefreshCw, Pin, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { Card, CardHeader, CardTitle } from '@/components/ui/card'
+import { DoneScenarioCard, type DoneItem } from './done-scenario-card'
 
 interface FeedContainerProps {
   initialItems: FeedItem[]
-  doneItems?: FeedItem[]
+  doneItems?: DoneItem[]
   userProfile?: Profile | null
   isOnboarding?: boolean
 }
@@ -39,8 +39,26 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
   const userTalents = (userProfile?.talents || []) as Talent[]
 
   // Track items that were answered in this session (move to done)
-  const [sessionDone, setSessionDone] = useState<FeedItem[]>([])
+  const [sessionDone, setSessionDone] = useState<DoneItem[]>([])
   const allDoneItems = [...doneItems, ...sessionDone]
+
+  // Edit handler: move a done item back to pending for re-answering
+  const handleEditDone = useCallback(async (item: DoneItem) => {
+    // Delete the existing response from the DB
+    await supabase
+      .from('scenario_responses')
+      .delete()
+      .eq('user_id', userProfile?.id)
+      .eq('feed_item_id', item.id)
+
+    // Move from done back to pending
+    startTransition(() => {
+      setSessionDone(prev => prev.filter(d => d.id !== item.id))
+      setItems(prev => [item, ...prev])
+      setViewMode('pending')
+      setShowAll(false)
+    })
+  }, [supabase, userProfile])
 
   const handleExpand = useCallback(() => {
     setShowAll(true)
@@ -101,10 +119,16 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
     }
 
     // Move item to done, remove from pending, auto-collapse
-    const doneItem = items.find(i => i.id === itemId)
+    const sourceItem = items.find(i => i.id === itemId)
     startTransition(() => {
       setItems(prev => prev.filter(i => i.id !== itemId))
-      if (doneItem) setSessionDone(prev => [...prev, doneItem])
+      if (sourceItem) {
+        setSessionDone(prev => [...prev, {
+          ...sourceItem,
+          _userAnswer: selectedOption || null,
+          _responseType: 'like',
+        }])
+      }
       collapseIfNeeded()
     })
   }, [items, supabase, userProfile, collapseIfNeeded])
@@ -116,10 +140,16 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
       response_type: 'discard',
     })
 
-    const doneItem = items.find(i => i.id === itemId)
+    const sourceItem = items.find(i => i.id === itemId)
     startTransition(() => {
       setItems(prev => prev.filter(i => i.id !== itemId))
-      if (doneItem) setSessionDone(prev => [...prev, doneItem])
+      if (sourceItem) {
+        setSessionDone(prev => [...prev, {
+          ...sourceItem,
+          _userAnswer: null,
+          _responseType: 'discard',
+        }])
+      }
       collapseIfNeeded()
     })
   }, [items, supabase, userProfile, collapseIfNeeded])
@@ -377,16 +407,11 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
             <p className="py-8 text-center text-sm text-muted-foreground">No answered items yet.</p>
           ) : (
             allDoneItems.map((item) => (
-              <Card key={item.id} className="border border-border bg-muted/30 opacity-80">
-                <CardHeader className="py-2.5 px-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <CardTitle className="text-sm font-medium text-foreground truncate">
-                      {item.title}
-                    </CardTitle>
-                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary" />
-                  </div>
-                </CardHeader>
-              </Card>
+              <DoneScenarioCard
+                key={item.id}
+                item={item as DoneItem}
+                onEdit={handleEditDone}
+              />
             ))
           )}
         </div>
