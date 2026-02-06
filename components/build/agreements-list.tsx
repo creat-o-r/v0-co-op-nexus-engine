@@ -49,6 +49,7 @@ interface Props {
   agreements: AgreementRow[]
   userId?: string
   filter: string
+  highlightId?: string
 }
 
 const typeConfig: Record<string, { icon: typeof Handshake; label: string; color: string }> = {
@@ -67,8 +68,8 @@ const statusStyles: Record<string, string> = {
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
-function AgreementCard({ agreement, userId }: { agreement: AgreementRow; userId?: string }) {
-  const [expanded, setExpanded] = useState(false)
+function AgreementCard({ agreement, userId, autoExpand }: { agreement: AgreementRow; userId?: string; autoExpand?: boolean }) {
+  const [expanded, setExpanded] = useState(!!autoExpand)
   const config = typeConfig[agreement.agreement_type] || typeConfig.community_standard
   const Icon = config.icon
 
@@ -184,7 +185,7 @@ function AgreementCard({ agreement, userId }: { agreement: AgreementRow; userId?
   )
 }
 
-export function AgreementsList({ agreements, userId, filter }: Props) {
+export function AgreementsList({ agreements, userId, filter, highlightId }: Props) {
   const filtered = filter === "all"
     ? agreements
     : agreements.filter((a) => a.agreement_type === filter)
@@ -206,7 +207,7 @@ export function AgreementsList({ agreements, userId, filter }: Props) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {filtered.map((agreement) => (
-        <AgreementCard key={agreement.id} agreement={agreement} userId={userId} />
+        <AgreementCard key={agreement.id} agreement={agreement} userId={userId} autoExpand={agreement.id === highlightId} />
       ))}
     </div>
   )

@@ -18,7 +18,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Menu, Search, Bell, Leaf, User, Settings, LogOut, Home, Package, Truck, Hammer, Users } from "lucide-react";
+import { Menu, Search, Bell, Leaf, User, Settings, LogOut, Home, Truck, Users } from "lucide-react";
 import type { Profile } from "@/lib/types/database";
 
 interface AppHeaderProps {
@@ -31,10 +31,8 @@ export function AppHeader({ user, onSignOut }: AppHeaderProps) {
 
   const navItems = [
     { href: "/feed", label: "Feed", icon: Home },
-    { href: "/products", label: "Products", icon: Package },
-    { href: "/logistics", label: "Logistics", icon: Truck },
-    { href: "/build", label: "Build", icon: Hammer },
-    { href: "/community", label: "Community", icon: Users },
+    { href: "/logistics", label: "Routes", icon: Truck },
+    { href: "/community", label: "Hub", icon: Users },
   ];
 
   return (
