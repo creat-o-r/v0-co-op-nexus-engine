@@ -9,7 +9,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Users, Shield, MapPin, MessageCircle, CheckCircle,
   Star, Leaf, Hammer, Handshake, LayoutGrid, Truck, ClipboardCheck,
+  Package, ChevronRight,
 } from "lucide-react"
+import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { AgreementsList } from "@/components/build/agreements-list"
 import { BuildTasksList } from "@/components/build/build-tasks-list"
@@ -362,6 +364,32 @@ export function CommunityPageClient({
           )}
         </div>
       )}
+
+      {/* ── Footer: orphaned entity links ────────── */}
+      <footer className="mt-8 border-t pt-5 pb-20">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 mb-3">
+          Explore
+        </p>
+        <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
+          {[
+            { href: "/products", label: "Products", desc: "Browse & search", icon: Package },
+            { href: "/logistics", label: "Routes", desc: "Delivery logistics", icon: Truck },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 rounded-lg border border-border/60 px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:border-primary/30 hover:bg-muted/40 transition-colors group"
+            >
+              <item.icon className="h-4 w-4 shrink-0 text-muted-foreground/60 group-hover:text-primary transition-colors" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-foreground">{item.label}</p>
+                <p className="text-[10px] text-muted-foreground">{item.desc}</p>
+              </div>
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </Link>
+          ))}
+        </div>
+      </footer>
     </div>
   )
 }
