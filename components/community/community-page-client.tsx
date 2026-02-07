@@ -373,8 +373,6 @@ export function CommunityPageClient({
         <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
           {[
             { href: "/products", label: "Products", desc: "Browse catalog & types", icon: Package },
-            { href: "/products?tab=surplus", label: "Surplus", desc: "Available offerings", icon: Leaf },
-            { href: "/products?tab=needs", label: "Needs", desc: "Open requests", icon: ShoppingCart },
             { href: "/community?tab=build&filter=verification_report", label: "Verifications", desc: "Peer reviews", icon: ClipboardCheck },
           ].map((item) => (
             <Link

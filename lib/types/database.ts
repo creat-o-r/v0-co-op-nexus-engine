@@ -238,6 +238,72 @@ export interface DraftApproval {
   profile?: Profile
 }
 
+export type OrderType = 'purchase' | 'swap' | 'mixed'
+
+export type OrderStatus =
+  | 'proposed'
+  | 'accepted'
+  | 'in_transit'
+  | 'delivered'
+  | 'completed'
+  | 'rejected'
+  | 'cancelled'
+  | 'disputed'
+
+export type ItemDirection = 'to_counterparty' | 'to_initiator'
+
+export interface OrderPreferences {
+  id: string
+  user_id: string
+  allow_swaps: boolean
+  allow_money: boolean
+  allow_mixed: boolean
+  min_trust_points: number
+  auto_accept: boolean
+  accepted_hubs: string[]
+  blacklisted_items: string[]
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Order {
+  id: string
+  initiator_id: string
+  counterparty_id: string
+  order_type: OrderType
+  status: OrderStatus
+  money_amount: number
+  money_direction: 'initiator_pays' | 'counterparty_pays' | null
+  related_agreement_id: string | null
+  related_route_id: string | null
+  related_need_id: string | null
+  related_surplus_id: string | null
+  pickup_hub: string | null
+  dropoff_hub: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+  initiator_profile?: Profile
+  counterparty_profile?: Profile
+  items?: OrderItem[]
+  route?: LogisticsRoute
+}
+
+export interface OrderItem {
+  id: string
+  order_id: string
+  product_id: string | null
+  product_type_id: string | null
+  surplus_id: string | null
+  product_name: string
+  quantity: number
+  unit: string
+  direction: ItemDirection
+  price_per_unit: number | null
+  created_at: string
+}
+
 // Aggregated types for the Bulk-Matching Engine
 export interface AggregatedDemand {
   product_name: string

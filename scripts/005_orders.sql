@@ -162,58 +162,78 @@ FROM profiles p
 ON CONFLICT (user_id) DO NOTHING;
 
 -- ── Seed: Sample orders to demonstrate all types ────────────
+-- Only seeds if there are at least 2 real auth users
 DO $$
 DECLARE
   v_users UUID[];
+  v_user_count INT;
   v_surplus_id UUID;
   v_need_id UUID;
   v_route_id UUID;
   v_order_id UUID;
+  v_u1 UUID;
+  v_u2 UUID;
+  v_u3 UUID;
+  v_u4 UUID;
 BEGIN
-  -- Grab first 4 user IDs
+  -- Grab user IDs from auth.users (not profiles, since profiles may be empty)
   SELECT array_agg(id ORDER BY created_at) INTO v_users
-  FROM (SELECT id, created_at FROM profiles LIMIT 4) sub;
+  FROM (SELECT id, created_at FROM auth.users LIMIT 4) sub;
 
-  IF array_length(v_users, 1) < 2 THEN
-    RAISE NOTICE 'Not enough users to seed orders';
+  v_user_count := COALESCE(array_length(v_users, 1), 0);
+
+  IF v_user_count < 2 THEN
+    RAISE NOTICE 'Not enough users (%) to seed orders, skipping', v_user_count;
     RETURN;
   END IF;
 
-  -- Grab a surplus, need, and route for linking
+  v_u1 := v_users[1];
+  v_u2 := v_users[2];
+  -- Reuse users if we don't have 4
+  v_u3 := CASE WHEN v_user_count >= 3 THEN v_users[3] ELSE v_users[1] END;
+  v_u4 := CASE WHEN v_user_count >= 4 THEN v_users[4] ELSE v_users[2] END;
+
+  -- Grab a surplus, need, and route for linking (may be NULL)
   SELECT id INTO v_surplus_id FROM user_surplus WHERE is_active = true LIMIT 1;
   SELECT id INTO v_need_id FROM user_needs WHERE is_active = true LIMIT 1;
   SELECT id INTO v_route_id FROM logistics_routes WHERE is_active = true LIMIT 1;
 
   -- 1. Purchase order (User 1 buys from User 2)
   INSERT INTO orders (initiator_id, counterparty_id, order_type, status, money_amount, money_direction, related_surplus_id, pickup_hub, dropoff_hub, notes)
-  VALUES (v_users[1], v_users[2], 'purchase', 'accepted', 12.50, 'initiator_pays', v_surplus_id, 'Greendale Hub', 'Riverside Hub', 'Weekly egg order')
+  VALUES (v_u1, v_u2, 'purchase', 'accepted', 12.50, 'initiator_pays', v_surplus_id, 'Greendale Hub', 'Riverside Hub', 'Weekly egg order')
   RETURNING id INTO v_order_id;
 
   INSERT INTO order_items (order_id, product_name, quantity, unit, direction, surplus_id, price_per_unit)
   VALUES (v_order_id, 'Free-Range Eggs', 2, 'dozen', 'to_initiator', v_surplus_id, 6.25);
 
   -- 2. Pure swap (User 1 trades flour for User 3's honey)
-  INSERT INTO orders (initiator_id, counterparty_id, order_type, status, money_amount, pickup_hub, dropoff_hub, notes)
-  VALUES (v_users[1], v_users[3], 'swap', 'proposed', 0, 'Greendale Hub', 'Greendale Hub', 'Flour-for-honey swap')
-  RETURNING id INTO v_order_id;
+  -- Only if user 3 is distinct from user 1
+  IF v_u3 != v_u1 THEN
+    INSERT INTO orders (initiator_id, counterparty_id, order_type, status, money_amount, pickup_hub, dropoff_hub, notes)
+    VALUES (v_u1, v_u3, 'swap', 'proposed', 0, 'Greendale Hub', 'Greendale Hub', 'Flour-for-honey swap')
+    RETURNING id INTO v_order_id;
 
-  INSERT INTO order_items (order_id, product_name, quantity, unit, direction) VALUES
-    (v_order_id, 'Organic Flour', 3, 'kg', 'to_counterparty'),
-    (v_order_id, 'Raw Honey', 1, 'jar', 'to_initiator');
+    INSERT INTO order_items (order_id, product_name, quantity, unit, direction) VALUES
+      (v_order_id, 'Organic Flour', 3, 'kg', 'to_counterparty'),
+      (v_order_id, 'Raw Honey', 1, 'jar', 'to_initiator');
+  END IF;
 
   -- 3. Mixed order (User 2 sends bread + $3 for User 4's preserves)
-  INSERT INTO orders (initiator_id, counterparty_id, order_type, status, money_amount, money_direction, pickup_hub, notes)
-  VALUES (v_users[2], v_users[4], 'mixed', 'in_transit', 3.00, 'initiator_pays', 'Riverside Hub', 'Bread + cash for preserves')
-  RETURNING id INTO v_order_id;
+  -- Only if user 4 is distinct from user 2
+  IF v_u4 != v_u2 THEN
+    INSERT INTO orders (initiator_id, counterparty_id, order_type, status, money_amount, money_direction, pickup_hub, notes)
+    VALUES (v_u2, v_u4, 'mixed', 'in_transit', 3.00, 'initiator_pays', 'Riverside Hub', 'Bread + cash for preserves')
+    RETURNING id INTO v_order_id;
 
-  INSERT INTO order_items (order_id, product_name, quantity, unit, direction) VALUES
-    (v_order_id, 'Sourdough Bread', 2, 'loaves', 'to_counterparty'),
-    (v_order_id, 'Berry Preserves', 3, 'jars', 'to_initiator');
+    INSERT INTO order_items (order_id, product_name, quantity, unit, direction) VALUES
+      (v_order_id, 'Sourdough Bread', 2, 'loaves', 'to_counterparty'),
+      (v_order_id, 'Berry Preserves', 3, 'jars', 'to_initiator');
+  END IF;
 
   -- 4. Route-linked purchase (User 3 buys from User 2 via a route)
-  IF v_route_id IS NOT NULL THEN
+  IF v_route_id IS NOT NULL AND v_u3 != v_u2 THEN
     INSERT INTO orders (initiator_id, counterparty_id, order_type, status, money_amount, money_direction, related_route_id, related_need_id, pickup_hub, dropoff_hub, notes)
-    VALUES (v_users[3], v_users[2], 'purchase', 'delivered', 8.00, 'initiator_pays', v_route_id, v_need_id, 'Riverside Hub', 'Greendale Hub', 'Delivery via community route')
+    VALUES (v_u3, v_u2, 'purchase', 'delivered', 8.00, 'initiator_pays', v_route_id, v_need_id, 'Riverside Hub', 'Greendale Hub', 'Delivery via community route')
     RETURNING id INTO v_order_id;
 
     INSERT INTO order_items (order_id, product_name, quantity, unit, direction, price_per_unit)
