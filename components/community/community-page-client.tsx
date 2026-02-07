@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Users, Shield, MapPin, MessageCircle, CheckCircle,
   Star, Leaf, Hammer, Handshake, LayoutGrid, Truck, ClipboardCheck,
-  Package, ChevronRight,
+  Package, ChevronRight, ShoppingCart,
 } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
@@ -365,15 +365,17 @@ export function CommunityPageClient({
         </div>
       )}
 
-      {/* ── Footer: orphaned entity links ────────── */}
+      {/* ── Footer: entities without primary nav ─── */}
       <footer className="mt-8 border-t pt-5 pb-20">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 mb-3">
-          Explore
+          More
         </p>
         <div className="grid gap-2 grid-cols-2 sm:grid-cols-3">
           {[
-            { href: "/products", label: "Products", desc: "Browse & search", icon: Package },
-            { href: "/logistics", label: "Routes", desc: "Delivery logistics", icon: Truck },
+            { href: "/products", label: "Products", desc: "Browse catalog & types", icon: Package },
+            { href: "/products?tab=surplus", label: "Surplus", desc: "Available offerings", icon: Leaf },
+            { href: "/products?tab=needs", label: "Needs", desc: "Open requests", icon: ShoppingCart },
+            { href: "/community?tab=build&filter=verification_report", label: "Verifications", desc: "Peer reviews", icon: ClipboardCheck },
           ].map((item) => (
             <Link
               key={item.href}
