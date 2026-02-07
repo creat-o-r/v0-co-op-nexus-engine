@@ -56,9 +56,9 @@ export async function POST(request: Request) {
   const type = body.type // 'need' | 'offer'
 
   if (type === 'need') {
-    const { data, error } = await supabase.from('user_needs').insert({
-      user_id: user.id,
+    const payload = {
       product_name: body.product_name,
+      product_id: body.product_id || null,
       quantity: body.quantity || 1,
       unit: body.unit || 'unit',
       frequency: body.frequency || 'one_time',
@@ -66,16 +66,28 @@ export async function POST(request: Request) {
       priority: body.priority || 'normal',
       notes: body.notes || null,
       is_active: true,
-    }).select().single()
+      updated_at: new Date().toISOString(),
+    }
+
+    let data, error
+    if (body.id) {
+      // Edit existing
+      const res = await supabase.from('user_needs').update(payload).eq('id', body.id).eq('user_id', user.id).select().single()
+      data = res.data; error = res.error
+    } else {
+      // Create new
+      const res = await supabase.from('user_needs').insert({ ...payload, user_id: user.id }).select().single()
+      data = res.data; error = res.error
+    }
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json(data)
   }
 
   if (type === 'offer') {
-    const { data, error } = await supabase.from('user_surplus').insert({
-      user_id: user.id,
+    const payload = {
       product_name: body.product_name,
+      product_id: body.product_id || null,
       quantity_available: body.quantity_available || 1,
       unit: body.unit || 'unit',
       price_per_unit: body.price_per_unit || null,
@@ -83,8 +95,18 @@ export async function POST(request: Request) {
       available_until: body.available_until || null,
       notes: body.notes || null,
       is_active: true,
-      verification_status: 'self_reported',
-    }).select().single()
+      verification_status: body.id ? undefined : 'self_reported',
+      updated_at: new Date().toISOString(),
+    }
+
+    let data, error
+    if (body.id) {
+      const res = await supabase.from('user_surplus').update(payload).eq('id', body.id).eq('user_id', user.id).select().single()
+      data = res.data; error = res.error
+    } else {
+      const res = await supabase.from('user_surplus').insert({ ...payload, user_id: user.id, verification_status: 'self_reported' }).select().single()
+      data = res.data; error = res.error
+    }
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json(data)

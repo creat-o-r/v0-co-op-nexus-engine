@@ -10,11 +10,13 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   ArrowLeftRight, ArrowRight, DollarSign, Clock,
   CheckCircle, Truck, MapPin, Package, ShoppingCart,
-  Leaf, AlertTriangle, X, Plus, Zap, User,
+  Leaf, AlertTriangle, X, Plus, Zap, User, PenLine,
+  BarChart3, RotateCcw, Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import useSWR, { mutate } from 'swr'
-import type { Order, OrderItem, UserNeed, UserSurplus, Profile } from '@/lib/types/database'
+import { ProductSelector, type ProductSelection } from './product-selector'
+import type { Order, OrderItem, Profile } from '@/lib/types/database'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
@@ -28,6 +30,12 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
   cancelled:  { label: 'Cancelled',  color: 'bg-muted text-muted-foreground',   icon: X },
   disputed:   { label: 'Disputed',   color: 'bg-red-500/15 text-red-700',       icon: AlertTriangle },
 }
+
+const PRIORITY_OPTIONS = [
+  { value: 'low',    label: 'Flexible',  desc: 'No rush, when convenient', color: 'bg-muted text-muted-foreground' },
+  { value: 'normal', label: 'Standard',  desc: 'Within a week or so',     color: 'bg-blue-500/15 text-blue-700' },
+  { value: 'high',   label: 'Urgent',    desc: 'Need this ASAP',          color: 'bg-red-500/15 text-red-700' },
+] as const
 
 type Tab = 'orders' | 'needs' | 'offers'
 
@@ -44,10 +52,13 @@ export function OrdersPageClient() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b">
-        <div className="max-w-lg mx-auto px-4 py-3">
+        <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <h1 className="text-lg font-bold text-foreground">Orders</h1>
+          <a href="/orders?tab=preferences" className="text-muted-foreground hover:text-foreground transition-colors">
+            <Settings className="h-4.5 w-4.5" />
+            <span className="sr-only">Preferences</span>
+          </a>
         </div>
         <div className="max-w-lg mx-auto px-4 flex gap-1 pb-2">
           {tabs.map(({ key, label, icon: Icon }) => (
@@ -87,7 +98,7 @@ function InstantMatches({ query, forType }: { query: string; forType: 'need' | '
 
   if (!matches || matches.length === 0) return null
 
-  const isNeed = forType === 'need' // posting a need -> matches are surplus offers
+  const isNeed = forType === 'need'
   const label = isNeed ? 'Available offers' : 'People looking for this'
   const LabelIcon = isNeed ? Leaf : ShoppingCart
 
@@ -128,24 +139,40 @@ function InstantMatches({ query, forType }: { query: string; forType: 'need' | '
 }
 
 /* ── Need Form ────────────────────────────────────────── */
-function NeedForm({ onClose }: { onClose: () => void }) {
-  const [productName, setProductName] = useState('')
-  const [quantity, setQuantity] = useState('')
-  const [unit, setUnit] = useState('kg')
-  const [maxPrice, setMaxPrice] = useState('')
-  const [priority, setPriority] = useState('normal')
-  const [notes, setNotes] = useState('')
+function NeedForm({ onClose, initial }: { onClose: () => void; initial?: { product_name: string; quantity: number; unit: string; max_price_per_unit: number | null; priority: string; notes: string | null; id?: string } }) {
+  const emptySelection: ProductSelection = {
+    product_name: initial?.product_name || '',
+    product_id: null,
+    product_type_id: null,
+    category: null,
+    unit: initial?.unit || null,
+    isNew: !initial,
+  }
+  const [selection, setSelection] = useState<ProductSelection>(emptySelection)
+  const [quantity, setQuantity] = useState(initial?.quantity?.toString() || '')
+  const [unit, setUnit] = useState(initial?.unit || 'kg')
+  const [maxPrice, setMaxPrice] = useState(initial?.max_price_per_unit?.toString() || '')
+  const [priority, setPriority] = useState(initial?.priority || 'normal')
+  const [notes, setNotes] = useState(initial?.notes || '')
   const [submitting, setSubmitting] = useState(false)
 
+  // Auto-set unit from product selection
+  const handleSelection = (s: ProductSelection) => {
+    setSelection(s)
+    if (s.unit) setUnit(s.unit)
+  }
+
   const handleSubmit = async () => {
-    if (!productName.trim()) return
+    if (!selection.product_name.trim()) return
     setSubmitting(true)
     await fetch('/api/orders/listings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         type: 'need',
-        product_name: productName.trim(),
+        id: initial?.id,
+        product_name: selection.product_name.trim(),
+        product_id: selection.product_id,
         quantity: Number(quantity) || 1,
         unit,
         max_price_per_unit: maxPrice ? Number(maxPrice) : null,
@@ -164,83 +191,58 @@ function NeedForm({ onClose }: { onClose: () => void }) {
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold flex items-center gap-1.5">
             <ShoppingCart className="h-4 w-4 text-chart-3" />
-            Post a Need
+            {initial?.id ? 'Edit Need' : 'Post a Need'}
           </h3>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <Input
-          placeholder="What do you need? e.g. Eggs, Flour..."
-          value={productName}
-          onChange={e => setProductName(e.target.value)}
-          className="text-sm"
+        <ProductSelector
+          value={selection}
+          onChange={handleSelection}
+          placeholder="Search products or add new..."
           autoFocus
         />
 
         {/* Instant matches as user types */}
-        <InstantMatches query={productName} forType="need" />
+        <InstantMatches query={selection.product_name} forType="need" />
 
         <div className="grid grid-cols-3 gap-2">
-          <Input
-            type="number"
-            placeholder="Qty"
-            value={quantity}
-            onChange={e => setQuantity(e.target.value)}
-            className="text-sm"
-          />
-          <select
-            value={unit}
-            onChange={e => setUnit(e.target.value)}
-            className="rounded-md border bg-background px-2 py-1.5 text-sm"
-          >
+          <Input type="number" placeholder="Qty" value={quantity} onChange={e => setQuantity(e.target.value)} className="text-sm" />
+          <select value={unit} onChange={e => setUnit(e.target.value)} className="rounded-md border bg-background px-2 py-1.5 text-sm">
             {['kg', 'g', 'lb', 'oz', 'dozen', 'unit', 'bunch', 'loaf', 'jar', 'liter'].map(u => (
               <option key={u} value={u}>{u}</option>
             ))}
           </select>
-          <Input
-            type="number"
-            placeholder="Max $/unit"
-            value={maxPrice}
-            onChange={e => setMaxPrice(e.target.value)}
-            className="text-sm"
-            step="0.01"
-          />
+          <Input type="number" placeholder="Max $/unit" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} className="text-sm" step="0.01" />
         </div>
 
-        <div className="flex gap-1.5">
-          {(['low', 'normal', 'high'] as const).map(p => (
-            <button
-              key={p}
-              onClick={() => setPriority(p)}
-              className={cn(
-                'px-2.5 py-1 rounded-full text-xs font-medium transition-colors capitalize',
-                priority === p
-                  ? p === 'high' ? 'bg-red-500/15 text-red-700' : p === 'normal' ? 'bg-blue-500/15 text-blue-700' : 'bg-muted text-muted-foreground'
-                  : 'bg-muted/40 text-muted-foreground hover:bg-muted'
-              )}
-            >
-              {p}
-            </button>
-          ))}
+        <div className="space-y-1">
+          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">How soon?</p>
+          <div className="flex gap-1.5">
+            {PRIORITY_OPTIONS.map(p => (
+              <button
+                key={p.value}
+                onClick={() => setPriority(p.value)}
+                className={cn(
+                  'flex-1 rounded-lg px-2.5 py-2 text-left transition-colors border',
+                  priority === p.value
+                    ? `${p.color} border-current/20`
+                    : 'bg-muted/30 text-muted-foreground border-transparent hover:bg-muted/60'
+                )}
+              >
+                <p className="text-xs font-semibold">{p.label}</p>
+                <p className="text-[10px] opacity-70">{p.desc}</p>
+              </button>
+            ))}
+          </div>
         </div>
 
-        <Textarea
-          placeholder="Any notes? Organic only, delivery preference..."
-          value={notes}
-          onChange={e => setNotes(e.target.value)}
-          rows={2}
-          className="text-sm resize-none"
-        />
+        <Textarea placeholder="Any notes? Organic only, delivery preference..." value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="text-sm resize-none" />
 
-        <Button
-          onClick={handleSubmit}
-          disabled={!productName.trim() || submitting}
-          className="w-full"
-          size="sm"
-        >
-          {submitting ? 'Posting...' : 'Post Need'}
+        <Button onClick={handleSubmit} disabled={!selection.product_name.trim() || submitting} className="w-full" size="sm">
+          {submitting ? 'Saving...' : initial?.id ? 'Save Changes' : 'Post Need'}
         </Button>
       </CardContent>
     </Card>
@@ -248,23 +250,38 @@ function NeedForm({ onClose }: { onClose: () => void }) {
 }
 
 /* ── Offer Form ───────────────────────────────────────── */
-function OfferForm({ onClose }: { onClose: () => void }) {
-  const [productName, setProductName] = useState('')
-  const [quantity, setQuantity] = useState('')
-  const [unit, setUnit] = useState('kg')
-  const [price, setPrice] = useState('')
-  const [notes, setNotes] = useState('')
+function OfferForm({ onClose, initial }: { onClose: () => void; initial?: { product_name: string; quantity_available: number; unit: string; price_per_unit: number | null; notes: string | null; id?: string } }) {
+  const emptySelection: ProductSelection = {
+    product_name: initial?.product_name || '',
+    product_id: null,
+    product_type_id: null,
+    category: null,
+    unit: initial?.unit || null,
+    isNew: !initial,
+  }
+  const [selection, setSelection] = useState<ProductSelection>(emptySelection)
+  const [quantity, setQuantity] = useState(initial?.quantity_available?.toString() || '')
+  const [unit, setUnit] = useState(initial?.unit || 'kg')
+  const [price, setPrice] = useState(initial?.price_per_unit?.toString() || '')
+  const [notes, setNotes] = useState(initial?.notes || '')
   const [submitting, setSubmitting] = useState(false)
 
+  const handleSelection = (s: ProductSelection) => {
+    setSelection(s)
+    if (s.unit) setUnit(s.unit)
+  }
+
   const handleSubmit = async () => {
-    if (!productName.trim()) return
+    if (!selection.product_name.trim()) return
     setSubmitting(true)
     await fetch('/api/orders/listings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         type: 'offer',
-        product_name: productName.trim(),
+        id: initial?.id,
+        product_name: selection.product_name.trim(),
+        product_id: selection.product_id,
         quantity_available: Number(quantity) || 1,
         unit,
         price_per_unit: price ? Number(price) : null,
@@ -282,70 +299,38 @@ function OfferForm({ onClose }: { onClose: () => void }) {
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold flex items-center gap-1.5">
             <Leaf className="h-4 w-4 text-primary" />
-            Post an Offer
+            {initial?.id ? 'Edit Offer' : 'Post an Offer'}
           </h3>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <Input
-          placeholder="What do you have? e.g. Eggs, Honey..."
-          value={productName}
-          onChange={e => setProductName(e.target.value)}
-          className="text-sm"
+        <ProductSelector
+          value={selection}
+          onChange={handleSelection}
+          placeholder="Search products or add new..."
           autoFocus
         />
 
         {/* Instant matches as user types */}
-        <InstantMatches query={productName} forType="offer" />
+        <InstantMatches query={selection.product_name} forType="offer" />
 
         <div className="grid grid-cols-3 gap-2">
-          <Input
-            type="number"
-            placeholder="Qty"
-            value={quantity}
-            onChange={e => setQuantity(e.target.value)}
-            className="text-sm"
-          />
-          <select
-            value={unit}
-            onChange={e => setUnit(e.target.value)}
-            className="rounded-md border bg-background px-2 py-1.5 text-sm"
-          >
+          <Input type="number" placeholder="Qty" value={quantity} onChange={e => setQuantity(e.target.value)} className="text-sm" />
+          <select value={unit} onChange={e => setUnit(e.target.value)} className="rounded-md border bg-background px-2 py-1.5 text-sm">
             {['kg', 'g', 'lb', 'oz', 'dozen', 'unit', 'bunch', 'loaf', 'jar', 'liter'].map(u => (
               <option key={u} value={u}>{u}</option>
             ))}
           </select>
-          <Input
-            type="number"
-            placeholder="$/unit"
-            value={price}
-            onChange={e => setPrice(e.target.value)}
-            className="text-sm"
-            step="0.01"
-          />
+          <Input type="number" placeholder="$/unit" value={price} onChange={e => setPrice(e.target.value)} className="text-sm" step="0.01" />
         </div>
+        <p className="text-[10px] text-muted-foreground">Leave price empty to indicate open to swaps</p>
 
-        <p className="text-[10px] text-muted-foreground">
-          Leave price empty to indicate you are open to swaps
-        </p>
+        <Textarea placeholder="Notes? Organic, homemade, pickup location..." value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="text-sm resize-none" />
 
-        <Textarea
-          placeholder="Notes? Organic, homemade, pickup location..."
-          value={notes}
-          onChange={e => setNotes(e.target.value)}
-          rows={2}
-          className="text-sm resize-none"
-        />
-
-        <Button
-          onClick={handleSubmit}
-          disabled={!productName.trim() || submitting}
-          className="w-full"
-          size="sm"
-        >
-          {submitting ? 'Posting...' : 'Post Offer'}
+        <Button onClick={handleSubmit} disabled={!selection.product_name.trim() || submitting} className="w-full" size="sm">
+          {submitting ? 'Saving...' : initial?.id ? 'Save Changes' : 'Post Offer'}
         </Button>
       </CardContent>
     </Card>
@@ -356,68 +341,36 @@ function OfferForm({ onClose }: { onClose: () => void }) {
 function OrdersTab() {
   const { data: orders, isLoading } = useSWR<Order[]>('/api/orders', fetcher)
 
-  if (isLoading) {
-    return (
-      <div className="space-y-3">
-        {[1, 2, 3].map(i => (
-          <Card key={i} className="animate-pulse">
-            <CardContent className="py-4 px-4"><div className="h-16 bg-muted rounded" /></CardContent>
-          </Card>
-        ))}
-      </div>
-    )
-  }
+  if (isLoading) return <div className="space-y-3">{[1, 2, 3].map(i => <Card key={i} className="animate-pulse"><CardContent className="py-4 px-4"><div className="h-16 bg-muted rounded" /></CardContent></Card>)}</div>
 
-  if (!orders?.length) {
-    return (
-      <Card>
-        <CardContent className="py-12 text-center">
-          <ArrowLeftRight className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
-          <p className="font-semibold">No orders yet</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            Post a need or offer to get started
-          </p>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  return (
-    <div className="space-y-3">
-      {orders.map(order => (
-        <OrderCard key={order.id} order={order} />
-      ))}
-    </div>
+  if (!orders?.length) return (
+    <Card><CardContent className="py-12 text-center">
+      <ArrowLeftRight className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+      <p className="font-semibold">No orders yet</p>
+      <p className="text-sm text-muted-foreground mt-1">Post a need or offer to get started</p>
+    </CardContent></Card>
   )
+
+  return <div className="space-y-3">{orders.map(order => <OrderCard key={order.id} order={order} />)}</div>
 }
 
 function OrderCard({ order }: { order: Order }) {
   const [expanded, setExpanded] = useState(false)
   const statusCfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.proposed
   const StatusIcon = statusCfg.icon
-
   const initials = order.initiator_profile?.display_name?.slice(0, 2).toUpperCase() || '??'
   const counterInitials = order.counterparty_profile?.display_name?.slice(0, 2).toUpperCase() || '??'
-
   const outgoing = (order.items || []).filter((i: OrderItem) => i.direction === 'to_counterparty')
   const incoming = (order.items || []).filter((i: OrderItem) => i.direction === 'to_initiator')
 
   return (
-    <Card
-      className="cursor-pointer hover:border-primary/30 transition-colors"
-      onClick={() => setExpanded(!expanded)}
-    >
+    <Card className="cursor-pointer hover:border-primary/30 transition-colors" onClick={() => setExpanded(!expanded)}>
       <CardContent className="py-3 px-4">
         <div className="flex items-center gap-3">
           <div className="flex items-center -space-x-2 shrink-0">
-            <Avatar className="h-8 w-8 border-2 border-background">
-              <AvatarFallback className="text-[10px] bg-primary/10 text-primary">{initials}</AvatarFallback>
-            </Avatar>
-            <Avatar className="h-8 w-8 border-2 border-background">
-              <AvatarFallback className="text-[10px] bg-accent/30 text-accent-foreground">{counterInitials}</AvatarFallback>
-            </Avatar>
+            <Avatar className="h-8 w-8 border-2 border-background"><AvatarFallback className="text-[10px] bg-primary/10 text-primary">{initials}</AvatarFallback></Avatar>
+            <Avatar className="h-8 w-8 border-2 border-background"><AvatarFallback className="text-[10px] bg-accent/30 text-accent-foreground">{counterInitials}</AvatarFallback></Avatar>
           </div>
-
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
               <p className="text-sm font-medium text-foreground truncate">
@@ -427,44 +380,38 @@ function OrderCard({ order }: { order: Order }) {
             </div>
             <div className="flex items-center gap-2 mt-0.5">
               <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium', statusCfg.color)}>
-                <StatusIcon className="h-2.5 w-2.5" />
-                {statusCfg.label}
+                <StatusIcon className="h-2.5 w-2.5" />{statusCfg.label}
               </span>
-              {order.money_amount > 0 && (
-                <span className="text-[10px] text-muted-foreground">${Number(order.money_amount).toFixed(2)}</span>
-              )}
+              {order.money_amount > 0 && <span className="text-[10px] text-muted-foreground">${Number(order.money_amount).toFixed(2)}</span>}
             </div>
           </div>
         </div>
 
         {expanded && (
           <div className="mt-3 space-y-3 border-t pt-3">
-            <div className="space-y-2">
-              {incoming.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 mb-1">Receiving</p>
-                  {incoming.map((item: OrderItem) => (
-                    <div key={item.id} className="flex items-center gap-2 text-xs">
-                      <Package className="h-3 w-3 text-primary shrink-0" />
-                      <span>{item.quantity} {item.unit} {item.product_name}</span>
-                      {item.price_per_unit && <span className="text-muted-foreground ml-auto">${Number(item.price_per_unit).toFixed(2)}/{item.unit}</span>}
-                    </div>
-                  ))}
-                </div>
-              )}
-              {outgoing.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 mb-1">Sending</p>
-                  {outgoing.map((item: OrderItem) => (
-                    <div key={item.id} className="flex items-center gap-2 text-xs">
-                      <ArrowRight className="h-3 w-3 text-amber-600 shrink-0" />
-                      <span>{item.quantity} {item.unit} {item.product_name}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
+            {incoming.length > 0 && (
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 mb-1">Receiving</p>
+                {incoming.map((item: OrderItem) => (
+                  <div key={item.id} className="flex items-center gap-2 text-xs">
+                    <Package className="h-3 w-3 text-primary shrink-0" />
+                    <span>{item.quantity} {item.unit} {item.product_name}</span>
+                    {item.price_per_unit && <span className="text-muted-foreground ml-auto">${Number(item.price_per_unit).toFixed(2)}/{item.unit}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {outgoing.length > 0 && (
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 mb-1">Sending</p>
+                {outgoing.map((item: OrderItem) => (
+                  <div key={item.id} className="flex items-center gap-2 text-xs">
+                    <ArrowRight className="h-3 w-3 text-amber-600 shrink-0" />
+                    <span>{item.quantity} {item.unit} {item.product_name}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             {(order.pickup_hub || order.dropoff_hub) && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <MapPin className="h-3 w-3 shrink-0" />
@@ -473,14 +420,195 @@ function OrderCard({ order }: { order: Order }) {
                 <span>{order.dropoff_hub || '?'}</span>
               </div>
             )}
-
-            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-              <span>{order.initiator_profile?.display_name || 'Initiator'}</span>
-              <ArrowLeftRight className="h-3 w-3" />
-              <span>{order.counterparty_profile?.display_name || 'Counterparty'}</span>
-            </div>
           </div>
         )}
+      </CardContent>
+    </Card>
+  )
+}
+
+/* ── Flippable Need Card ─────────────────────────────── */
+interface NeedRow { id: string; product_name: string; quantity: number; unit: string; frequency: string; max_price_per_unit: number | null; priority: string; notes: string | null; is_active: boolean; profile?: Profile }
+
+function NeedCard({ need }: { need: NeedRow }) {
+  const [flipped, setFlipped] = useState(false)
+  const [editing, setEditing] = useState(false)
+
+  if (editing) return (
+    <NeedForm
+      onClose={() => setEditing(false)}
+      initial={{ product_name: need.product_name, quantity: need.quantity, unit: need.unit, max_price_per_unit: need.max_price_per_unit, priority: need.priority, notes: need.notes, id: need.id }}
+    />
+  )
+
+  const priorityCfg = PRIORITY_OPTIONS.find(p => p.value === need.priority) || PRIORITY_OPTIONS[1]
+
+  if (flipped) {
+    // Back: stats + matching
+    return (
+      <Card className="border-chart-3/20">
+        <CardContent className="py-3 px-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold flex items-center gap-1.5">
+              <BarChart3 className="h-3.5 w-3.5 text-chart-3" />
+              Matches for {need.product_name}
+            </p>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setEditing(true)} className="p-1 text-muted-foreground hover:text-foreground transition-colors rounded">
+                <PenLine className="h-3.5 w-3.5" />
+              </button>
+              <button onClick={() => setFlipped(false)} className="p-1 text-muted-foreground hover:text-foreground transition-colors rounded">
+                <RotateCcw className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+          <InstantMatches query={need.product_name} forType="need" />
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-lg bg-muted/50 px-3 py-2">
+              <p className="text-[10px] text-muted-foreground">Quantity</p>
+              <p className="text-sm font-semibold">{need.quantity} {need.unit}</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 px-3 py-2">
+              <p className="text-[10px] text-muted-foreground">Max Price</p>
+              <p className="text-sm font-semibold">{need.max_price_per_unit ? `$${Number(need.max_price_per_unit).toFixed(2)}/${need.unit}` : 'Any'}</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 px-3 py-2">
+              <p className="text-[10px] text-muted-foreground">Frequency</p>
+              <p className="text-sm font-semibold capitalize">{need.frequency.replace('_', ' ')}</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 px-3 py-2">
+              <p className="text-[10px] text-muted-foreground">Urgency</p>
+              <p className={cn('text-sm font-semibold', priorityCfg.color.split(' ')[1])}>{priorityCfg.label}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Front
+  return (
+    <Card className="hover:border-chart-3/30 transition-colors">
+      <CardContent className="py-3 px-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-500/10 shrink-0">
+            <ShoppingCart className="h-4 w-4 text-amber-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-foreground">{need.product_name}</p>
+            <p className="text-xs text-muted-foreground">
+              {need.quantity} {need.unit} -- {need.frequency.replace('_', ' ')}
+              {need.max_price_per_unit && ` -- max $${Number(need.max_price_per_unit).toFixed(2)}/${need.unit}`}
+            </p>
+            {need.notes && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{need.notes}</p>}
+            <div className="flex items-center gap-2 mt-1.5">
+              {need.profile?.display_name && <span className="text-[10px] text-muted-foreground">{need.profile.display_name}</span>}
+              <span className={cn('px-1.5 py-0.5 rounded-full text-[10px] font-medium', priorityCfg.color)}>
+                {priorityCfg.label}
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1 shrink-0">
+            <button onClick={() => setFlipped(true)} className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded hover:bg-muted/50">
+              <BarChart3 className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={() => setEditing(true)} className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded hover:bg-muted/50">
+              <PenLine className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+/* ── Flippable Offer Card ────────────────────────────── */
+interface OfferRow { id: string; product_name: string; quantity_available: number; unit: string; price_per_unit: number | null; verification_status: string; notes: string | null; is_active: boolean; profile?: Profile }
+
+function OfferCard({ offer }: { offer: OfferRow }) {
+  const [flipped, setFlipped] = useState(false)
+  const [editing, setEditing] = useState(false)
+
+  if (editing) return (
+    <OfferForm
+      onClose={() => setEditing(false)}
+      initial={{ product_name: offer.product_name, quantity_available: offer.quantity_available, unit: offer.unit, price_per_unit: offer.price_per_unit, notes: offer.notes, id: offer.id }}
+    />
+  )
+
+  if (flipped) {
+    return (
+      <Card className="border-primary/20">
+        <CardContent className="py-3 px-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold flex items-center gap-1.5">
+              <BarChart3 className="h-3.5 w-3.5 text-primary" />
+              Demand for {offer.product_name}
+            </p>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setEditing(true)} className="p-1 text-muted-foreground hover:text-foreground transition-colors rounded">
+                <PenLine className="h-3.5 w-3.5" />
+              </button>
+              <button onClick={() => setFlipped(false)} className="p-1 text-muted-foreground hover:text-foreground transition-colors rounded">
+                <RotateCcw className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+          <InstantMatches query={offer.product_name} forType="offer" />
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-lg bg-muted/50 px-3 py-2">
+              <p className="text-[10px] text-muted-foreground">Available</p>
+              <p className="text-sm font-semibold">{offer.quantity_available} {offer.unit}</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 px-3 py-2">
+              <p className="text-[10px] text-muted-foreground">Price</p>
+              <p className="text-sm font-semibold">{offer.price_per_unit ? `$${Number(offer.price_per_unit).toFixed(2)}/${offer.unit}` : 'Open to swap'}</p>
+            </div>
+            <div className="col-span-2 rounded-lg bg-muted/50 px-3 py-2">
+              <p className="text-[10px] text-muted-foreground">Verification</p>
+              <p className="text-sm font-semibold capitalize">{(offer.verification_status || 'self_reported').replace(/_/g, ' ')}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card className="hover:border-primary/30 transition-colors">
+      <CardContent className="py-3 px-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 shrink-0">
+            <Leaf className="h-4 w-4 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-foreground">{offer.product_name}</p>
+            <p className="text-xs text-muted-foreground">
+              {offer.quantity_available} {offer.unit} available
+              {offer.price_per_unit ? ` -- $${Number(offer.price_per_unit).toFixed(2)}/${offer.unit}` : ' -- open to swap'}
+            </p>
+            {offer.notes && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{offer.notes}</p>}
+            <div className="flex items-center gap-2 mt-1.5">
+              {offer.profile?.display_name && <span className="text-[10px] text-muted-foreground">{offer.profile.display_name}</span>}
+              <span className={cn(
+                'px-1.5 py-0.5 rounded-full text-[10px] font-medium',
+                offer.verification_status === 'multiple_verified' ? 'bg-primary/15 text-primary' :
+                offer.verification_status === 'peer_verified' ? 'bg-blue-500/15 text-blue-700' :
+                'bg-muted text-muted-foreground'
+              )}>
+                {(offer.verification_status || 'self_reported').replace(/_/g, ' ')}
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1 shrink-0">
+            <button onClick={() => setFlipped(true)} className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded hover:bg-muted/50">
+              <BarChart3 className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={() => setEditing(true)} className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded hover:bg-muted/50">
+              <PenLine className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
       </CardContent>
     </Card>
   )
@@ -489,13 +617,10 @@ function OrderCard({ order }: { order: Order }) {
 /* ── Needs Tab ───────────────────────────────────────── */
 function NeedsTab() {
   const [showForm, setShowForm] = useState(false)
-  const { data: needs, isLoading } = useSWR<(UserNeed & { profile?: Profile })[]>(
-    '/api/orders/listings?type=needs', fetcher
-  )
+  const { data: needs, isLoading } = useSWR<NeedRow[]>('/api/orders/listings?type=needs', fetcher)
 
   return (
     <div className="space-y-3">
-      {/* + Need button or form */}
       {showForm ? (
         <NeedForm onClose={() => setShowForm(false)} />
       ) : (
@@ -511,50 +636,12 @@ function NeedsTab() {
       {isLoading ? (
         <div className="space-y-3">{[1, 2].map(i => <Card key={i} className="animate-pulse"><CardContent className="py-4 px-4"><div className="h-12 bg-muted rounded" /></CardContent></Card>)}</div>
       ) : !needs?.length ? (
-        <Card>
-          <CardContent className="py-10 text-center">
-            <ShoppingCart className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-            <p className="text-sm font-semibold">No active needs</p>
-            <p className="text-xs text-muted-foreground mt-1">Post what you are looking for</p>
-          </CardContent>
-        </Card>
-      ) : (
-        needs.map(need => (
-          <Card key={need.id} className="hover:border-primary/30 transition-colors">
-            <CardContent className="py-3 px-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-500/10 shrink-0">
-                  <ShoppingCart className="h-4 w-4 text-amber-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground">{need.product_name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {need.quantity} {need.unit} -- {need.frequency}
-                    {need.max_price_per_unit && ` -- max $${Number(need.max_price_per_unit).toFixed(2)}/${need.unit}`}
-                  </p>
-                  {need.notes && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{need.notes}</p>}
-                  <div className="flex items-center gap-2 mt-1.5">
-                    {need.profile?.display_name && (
-                      <span className="text-[10px] text-muted-foreground">{need.profile.display_name}</span>
-                    )}
-                    <span className={cn(
-                      'px-1.5 py-0.5 rounded-full text-[10px] font-medium',
-                      need.priority === 'high' ? 'bg-red-500/15 text-red-700' :
-                      need.priority === 'normal' ? 'bg-blue-500/15 text-blue-700' :
-                      'bg-muted text-muted-foreground'
-                    )}>
-                      {need.priority}
-                    </span>
-                  </div>
-                </div>
-                <Button size="sm" variant="outline" className="shrink-0 text-xs h-7">
-                  Offer
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))
-      )}
+        <Card><CardContent className="py-10 text-center">
+          <ShoppingCart className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+          <p className="text-sm font-semibold">No active needs</p>
+          <p className="text-xs text-muted-foreground mt-1">Post what you are looking for</p>
+        </CardContent></Card>
+      ) : needs.map(need => <NeedCard key={need.id} need={need} />)}
     </div>
   )
 }
@@ -562,13 +649,10 @@ function NeedsTab() {
 /* ── Offers Tab ──────────────────────────────────────── */
 function OffersTab() {
   const [showForm, setShowForm] = useState(false)
-  const { data: offers, isLoading } = useSWR<(UserSurplus & { profile?: Profile })[]>(
-    '/api/orders/listings?type=offers', fetcher
-  )
+  const { data: offers, isLoading } = useSWR<OfferRow[]>('/api/orders/listings?type=offers', fetcher)
 
   return (
     <div className="space-y-3">
-      {/* + Offer button or form */}
       {showForm ? (
         <OfferForm onClose={() => setShowForm(false)} />
       ) : (
@@ -584,50 +668,12 @@ function OffersTab() {
       {isLoading ? (
         <div className="space-y-3">{[1, 2].map(i => <Card key={i} className="animate-pulse"><CardContent className="py-4 px-4"><div className="h-12 bg-muted rounded" /></CardContent></Card>)}</div>
       ) : !offers?.length ? (
-        <Card>
-          <CardContent className="py-10 text-center">
-            <Leaf className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-            <p className="text-sm font-semibold">No active offers</p>
-            <p className="text-xs text-muted-foreground mt-1">List your surplus products</p>
-          </CardContent>
-        </Card>
-      ) : (
-        offers.map(offer => (
-          <Card key={offer.id} className="hover:border-primary/30 transition-colors">
-            <CardContent className="py-3 px-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 shrink-0">
-                  <Leaf className="h-4 w-4 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground">{offer.product_name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {offer.quantity_available} {offer.unit} available
-                    {offer.price_per_unit ? ` -- $${Number(offer.price_per_unit).toFixed(2)}/${offer.unit}` : ' -- open to swap'}
-                  </p>
-                  {offer.notes && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{offer.notes}</p>}
-                  <div className="flex items-center gap-2 mt-1.5">
-                    {offer.profile?.display_name && (
-                      <span className="text-[10px] text-muted-foreground">{offer.profile.display_name}</span>
-                    )}
-                    <span className={cn(
-                      'px-1.5 py-0.5 rounded-full text-[10px] font-medium',
-                      offer.verification_status === 'multiple_verified' ? 'bg-primary/15 text-primary' :
-                      offer.verification_status === 'peer_verified' ? 'bg-blue-500/15 text-blue-700' :
-                      'bg-muted text-muted-foreground'
-                    )}>
-                      {(offer.verification_status || 'self_reported').replace('_', ' ')}
-                    </span>
-                  </div>
-                </div>
-                <Button size="sm" variant="outline" className="shrink-0 text-xs h-7">
-                  Order
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))
-      )}
+        <Card><CardContent className="py-10 text-center">
+          <Leaf className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+          <p className="text-sm font-semibold">No active offers</p>
+          <p className="text-xs text-muted-foreground mt-1">List your surplus products</p>
+        </CardContent></Card>
+      ) : offers.map(offer => <OfferCard key={offer.id} offer={offer} />)}
     </div>
   )
 }
