@@ -1,6 +1,6 @@
 export type Talent = 'Tech' | 'Negotiation' | 'Logistics' | 'Growing' | 'Admin' | 'Promotion'
 
-export type FeedType = 'scenario' | 'product' | 'logistics' | 'build' | 'discussion' | 'verification'
+export type FeedType = 'scenario' | 'product' | 'logistics' | 'build' | 'discussion' | 'verification' | 'match'
 
 export type InteractionType = 'like' | 'discard' | 'claim' | 'complete' | 'comment'
 
