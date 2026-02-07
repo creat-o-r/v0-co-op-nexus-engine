@@ -30,17 +30,17 @@ VALUES (
 ON CONFLICT (id) DO NOTHING;
 
 -- Create profiles for system users
-INSERT INTO profiles (id, display_name, bio, hubs, talents, trust_points, is_verified)
+INSERT INTO profiles (id, display_name, bio, neighborhood_hub, talents, trust_points, is_distribution_hub)
 VALUES
-  ('d0000000-0000-0000-0000-000000000001', 'Greendale Farm', 'Local organic farm supplying the community with fresh produce, eggs, and honey.', '{"Greendale Hub"}', '{"farming", "beekeeping", "organic"}', 42, true),
-  ('d0000000-0000-0000-0000-000000000002', 'Riverside Bakery', 'Artisan bakery specializing in sourdough, pastries, and custom bread.', '{"Riverside Hub"}', '{"baking", "pastry", "sourdough"}', 38, true)
+  ('d0000000-0000-0000-0000-000000000001', 'Greendale Farm', 'Local organic farm supplying the community with fresh produce, eggs, and honey.', 'Greendale Hub', '{"farming", "beekeeping", "organic"}', 42, false),
+  ('d0000000-0000-0000-0000-000000000002', 'Riverside Bakery', 'Artisan bakery specializing in sourdough, pastries, and custom bread.', 'Riverside Hub', '{"baking", "pastry", "sourdough"}', 38, false)
 ON CONFLICT (id) DO UPDATE SET
   display_name = EXCLUDED.display_name,
   bio = EXCLUDED.bio,
-  hubs = EXCLUDED.hubs,
+  neighborhood_hub = EXCLUDED.neighborhood_hub,
   talents = EXCLUDED.talents,
   trust_points = EXCLUDED.trust_points,
-  is_verified = EXCLUDED.is_verified;
+  is_distribution_hub = EXCLUDED.is_distribution_hub;
 
 -- ── Seed surplus (offers) on system users ───────────────────
 DELETE FROM user_surplus WHERE user_id IN (
@@ -79,7 +79,7 @@ INSERT INTO user_needs (user_id, product_name, quantity, unit, frequency, max_pr
   ('d0000000-0000-0000-0000-000000000002', 'Mixed Vegetables', 5, 'kg',     'weekly',   4.00, 'low',    'Staff lunches',               true);
 
 -- ── Seed a logistics route between the two hubs ─────────────
-INSERT INTO logistics_routes (user_id, route_name, start_hub, end_hub, waypoints, schedule, departure_time, max_cargo_size, willing_to_detour, is_active)
+INSERT INTO logistics_routes (user_id, route_name, start_hub, end_hub, waypoints, schedule, departure_time,   max_cargo_size, willing_to_detour, is_active)
 VALUES (
   'd0000000-0000-0000-0000-000000000001',
   'Greendale to Riverside Weekly',
@@ -88,7 +88,7 @@ VALUES (
   '{}',
   '{"Wednesday", "Saturday"}',
   '08:00',
-  50,
+  '50 kg',
   true,
   true
 )
