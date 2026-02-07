@@ -22,6 +22,7 @@ interface OrderPreferences {
   allow_mixed: boolean
   min_trust_points: number
   auto_accept: boolean
+  default_orders_private: boolean
   accepted_hubs: string[]
   blacklisted_items: string[]
   notes: string | null
@@ -33,6 +34,7 @@ const DEFAULTS: OrderPreferences = {
   allow_mixed: true,
   min_trust_points: 0,
   auto_accept: false,
+  default_orders_private: true,
   accepted_hubs: [],
   blacklisted_items: [],
   notes: null,
@@ -164,14 +166,22 @@ export default function PreferencesPage() {
               </div>
             </div>
 
-            <ToggleRow
-              active={form.auto_accept}
-              onChange={v => setForm({ ...form, auto_accept: v })}
-              icon={<Zap className="h-4 w-4" />}
-              label="Auto-accept"
-              desc="Instantly accept orders from trusted members (above threshold)"
-            />
-          </CardContent>
+  <ToggleRow
+  active={form.auto_accept}
+  onChange={v => setForm({ ...form, auto_accept: v })}
+  icon={<Zap className="h-4 w-4" />}
+  label="Auto-accept"
+  desc="Instantly accept orders from trusted members (above threshold)"
+  />
+  
+  <ToggleRow
+  active={form.default_orders_private}
+  onChange={v => setForm({ ...form, default_orders_private: v })}
+  icon={<Shield className="h-4 w-4" />}
+  label="Orders private by default"
+  desc="New orders are only visible to you and the other party"
+  />
+  </CardContent>
         </Card>
 
         {/* Accepted Hubs */}

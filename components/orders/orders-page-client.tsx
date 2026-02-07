@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -11,7 +11,7 @@ import {
   ArrowLeftRight, ArrowRight, DollarSign, Clock,
   CheckCircle, Truck, MapPin, Package, ShoppingCart,
   Leaf, AlertTriangle, X, Plus, Zap, User, PenLine,
-  BarChart3, RotateCcw, Settings,
+  BarChart3, RotateCcw, Settings, ChevronDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import useSWR, { mutate } from 'swr'
@@ -38,6 +38,13 @@ const PRIORITY_OPTIONS = [
 ] as const
 
 type Tab = 'orders' | 'needs' | 'offers'
+type GroupBy = 'all' | 'hub' | 'category'
+
+/* ── Current user hook ─────────────────────────────────── */
+function useCurrentUser() {
+  const { data } = useSWR('/api/auth/me', fetcher, { dedupingInterval: 60000 })
+  return data?.id as string | undefined
+}
 
 export function OrdersPageClient() {
   const searchParams = useSearchParams()
@@ -100,7 +107,6 @@ function InstantMatches({ query, forType }: { query: string; forType: 'need' | '
 
   const isNeed = forType === 'need'
   const label = isNeed ? 'Available offers' : 'People looking for this'
-  const LabelIcon = isNeed ? Leaf : ShoppingCart
 
   return (
     <div className="rounded-lg border border-chart-3/30 bg-chart-3/5 p-3 space-y-2">
@@ -127,10 +133,9 @@ function InstantMatches({ query, forType }: { query: string; forType: 'need' | '
               </p>
               <p className="text-[10px] text-muted-foreground truncate">
                 {profile?.display_name || 'Member'}
-                {profile?.neighborhood_hub && ` -- ${profile.neighborhood_hub}`}
+                {profile?.neighborhood_hub && ` \u2014 ${profile.neighborhood_hub}`}
               </p>
             </div>
-            <LabelIcon className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
           </div>
         )
       })}
@@ -142,11 +147,8 @@ function InstantMatches({ query, forType }: { query: string; forType: 'need' | '
 function NeedForm({ onClose, initial }: { onClose: () => void; initial?: { product_name: string; quantity: number; unit: string; max_price_per_unit: number | null; priority: string; notes: string | null; id?: string } }) {
   const emptySelection: ProductSelection = {
     product_name: initial?.product_name || '',
-    product_id: null,
-    product_type_id: null,
-    category: null,
-    unit: initial?.unit || null,
-    isNew: !initial,
+    product_id: null, product_type_id: null, category: null,
+    unit: initial?.unit || null, isNew: !initial,
   }
   const [selection, setSelection] = useState<ProductSelection>(emptySelection)
   const [quantity, setQuantity] = useState(initial?.quantity?.toString() || '')
@@ -156,7 +158,6 @@ function NeedForm({ onClose, initial }: { onClose: () => void; initial?: { produ
   const [notes, setNotes] = useState(initial?.notes || '')
   const [submitting, setSubmitting] = useState(false)
 
-  // Auto-set unit from product selection
   const handleSelection = (s: ProductSelection) => {
     setSelection(s)
     if (s.unit) setUnit(s.unit)
@@ -169,15 +170,12 @@ function NeedForm({ onClose, initial }: { onClose: () => void; initial?: { produ
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        type: 'need',
-        id: initial?.id,
+        type: 'need', id: initial?.id,
         product_name: selection.product_name.trim(),
         product_id: selection.product_id,
-        quantity: Number(quantity) || 1,
-        unit,
+        quantity: Number(quantity) || 1, unit,
         max_price_per_unit: maxPrice ? Number(maxPrice) : null,
-        priority,
-        notes: notes.trim() || null,
+        priority, notes: notes.trim() || null,
       }),
     })
     mutate('/api/orders/listings?type=needs')
@@ -193,27 +191,16 @@ function NeedForm({ onClose, initial }: { onClose: () => void; initial?: { produ
             <ShoppingCart className="h-4 w-4 text-chart-3" />
             {initial?.id ? 'Edit Need' : 'Post a Need'}
           </h3>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
-            <X className="h-4 w-4" />
-          </button>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
         </div>
 
-        <ProductSelector
-          value={selection}
-          onChange={handleSelection}
-          placeholder="Search products or add new..."
-          autoFocus
-        />
-
-        {/* Instant matches as user types */}
+        <ProductSelector value={selection} onChange={handleSelection} placeholder="Search products or add new..." autoFocus />
         <InstantMatches query={selection.product_name} forType="need" />
 
         <div className="grid grid-cols-3 gap-2">
           <Input type="number" placeholder="Qty" value={quantity} onChange={e => setQuantity(e.target.value)} className="text-sm" />
           <select value={unit} onChange={e => setUnit(e.target.value)} className="rounded-md border bg-background px-2 py-1.5 text-sm">
-            {['kg', 'g', 'lb', 'oz', 'dozen', 'unit', 'bunch', 'loaf', 'jar', 'liter'].map(u => (
-              <option key={u} value={u}>{u}</option>
-            ))}
+            {['kg', 'g', 'lb', 'oz', 'dozen', 'unit', 'bunch', 'loaf', 'jar', 'liter'].map(u => <option key={u} value={u}>{u}</option>)}
           </select>
           <Input type="number" placeholder="Max $/unit" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} className="text-sm" step="0.01" />
         </div>
@@ -222,16 +209,10 @@ function NeedForm({ onClose, initial }: { onClose: () => void; initial?: { produ
           <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">How soon?</p>
           <div className="flex gap-1.5">
             {PRIORITY_OPTIONS.map(p => (
-              <button
-                key={p.value}
-                onClick={() => setPriority(p.value)}
-                className={cn(
-                  'flex-1 rounded-lg px-2.5 py-2 text-left transition-colors border',
-                  priority === p.value
-                    ? `${p.color} border-current/20`
-                    : 'bg-muted/30 text-muted-foreground border-transparent hover:bg-muted/60'
-                )}
-              >
+              <button key={p.value} onClick={() => setPriority(p.value)}
+                className={cn('flex-1 rounded-lg px-2.5 py-2 text-left transition-colors border',
+                  priority === p.value ? `${p.color} border-current/20` : 'bg-muted/30 text-muted-foreground border-transparent hover:bg-muted/60'
+                )}>
                 <p className="text-xs font-semibold">{p.label}</p>
                 <p className="text-[10px] opacity-70">{p.desc}</p>
               </button>
@@ -240,7 +221,6 @@ function NeedForm({ onClose, initial }: { onClose: () => void; initial?: { produ
         </div>
 
         <Textarea placeholder="Any notes? Organic only, delivery preference..." value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="text-sm resize-none" />
-
         <Button onClick={handleSubmit} disabled={!selection.product_name.trim() || submitting} className="w-full" size="sm">
           {submitting ? 'Saving...' : initial?.id ? 'Save Changes' : 'Post Need'}
         </Button>
@@ -253,11 +233,8 @@ function NeedForm({ onClose, initial }: { onClose: () => void; initial?: { produ
 function OfferForm({ onClose, initial }: { onClose: () => void; initial?: { product_name: string; quantity_available: number; unit: string; price_per_unit: number | null; notes: string | null; id?: string } }) {
   const emptySelection: ProductSelection = {
     product_name: initial?.product_name || '',
-    product_id: null,
-    product_type_id: null,
-    category: null,
-    unit: initial?.unit || null,
-    isNew: !initial,
+    product_id: null, product_type_id: null, category: null,
+    unit: initial?.unit || null, isNew: !initial,
   }
   const [selection, setSelection] = useState<ProductSelection>(emptySelection)
   const [quantity, setQuantity] = useState(initial?.quantity_available?.toString() || '')
@@ -266,10 +243,7 @@ function OfferForm({ onClose, initial }: { onClose: () => void; initial?: { prod
   const [notes, setNotes] = useState(initial?.notes || '')
   const [submitting, setSubmitting] = useState(false)
 
-  const handleSelection = (s: ProductSelection) => {
-    setSelection(s)
-    if (s.unit) setUnit(s.unit)
-  }
+  const handleSelection = (s: ProductSelection) => { setSelection(s); if (s.unit) setUnit(s.unit) }
 
   const handleSubmit = async () => {
     if (!selection.product_name.trim()) return
@@ -278,12 +252,10 @@ function OfferForm({ onClose, initial }: { onClose: () => void; initial?: { prod
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        type: 'offer',
-        id: initial?.id,
+        type: 'offer', id: initial?.id,
         product_name: selection.product_name.trim(),
         product_id: selection.product_id,
-        quantity_available: Number(quantity) || 1,
-        unit,
+        quantity_available: Number(quantity) || 1, unit,
         price_per_unit: price ? Number(price) : null,
         notes: notes.trim() || null,
       }),
@@ -301,34 +273,22 @@ function OfferForm({ onClose, initial }: { onClose: () => void; initial?: { prod
             <Leaf className="h-4 w-4 text-primary" />
             {initial?.id ? 'Edit Offer' : 'Post an Offer'}
           </h3>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
-            <X className="h-4 w-4" />
-          </button>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
         </div>
 
-        <ProductSelector
-          value={selection}
-          onChange={handleSelection}
-          placeholder="Search products or add new..."
-          autoFocus
-        />
-
-        {/* Instant matches as user types */}
+        <ProductSelector value={selection} onChange={handleSelection} placeholder="Search products or add new..." autoFocus />
         <InstantMatches query={selection.product_name} forType="offer" />
 
         <div className="grid grid-cols-3 gap-2">
           <Input type="number" placeholder="Qty" value={quantity} onChange={e => setQuantity(e.target.value)} className="text-sm" />
           <select value={unit} onChange={e => setUnit(e.target.value)} className="rounded-md border bg-background px-2 py-1.5 text-sm">
-            {['kg', 'g', 'lb', 'oz', 'dozen', 'unit', 'bunch', 'loaf', 'jar', 'liter'].map(u => (
-              <option key={u} value={u}>{u}</option>
-            ))}
+            {['kg', 'g', 'lb', 'oz', 'dozen', 'unit', 'bunch', 'loaf', 'jar', 'liter'].map(u => <option key={u} value={u}>{u}</option>)}
           </select>
           <Input type="number" placeholder="$/unit" value={price} onChange={e => setPrice(e.target.value)} className="text-sm" step="0.01" />
         </div>
         <p className="text-[10px] text-muted-foreground">Leave price empty to indicate open to swaps</p>
 
         <Textarea placeholder="Notes? Organic, homemade, pickup location..." value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="text-sm resize-none" />
-
         <Button onClick={handleSubmit} disabled={!selection.product_name.trim() || submitting} className="w-full" size="sm">
           {submitting ? 'Saving...' : initial?.id ? 'Save Changes' : 'Post Offer'}
         </Button>
@@ -337,7 +297,215 @@ function OfferForm({ onClose, initial }: { onClose: () => void; initial?: { prod
   )
 }
 
-/* ── Orders Tab ──────────────────────────────────────── */
+/* ── Group header ──────────────────────────────────────── */
+function GroupHeader({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2 pt-2 pb-1">
+      <div className="h-px flex-1 bg-border/60" />
+      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60 shrink-0">{label}</span>
+      <div className="h-px flex-1 bg-border/60" />
+    </div>
+  )
+}
+
+/* ── Grouping chips ────────────────────────────────────── */
+function GroupChips({ value, onChange }: { value: GroupBy; onChange: (v: GroupBy) => void }) {
+  const options: { key: GroupBy; label: string }[] = [
+    { key: 'all', label: 'All' },
+    { key: 'hub', label: 'By Hub' },
+    { key: 'category', label: 'By Product' },
+  ]
+  return (
+    <div className="flex gap-1">
+      {options.map(o => (
+        <button key={o.key} onClick={() => onChange(o.key)}
+          className={cn(
+            'px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors',
+            value === o.key ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
+          )}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/* ── Need Card (mine = editable, other = view only) ──── */
+interface NeedRow { id: string; user_id: string; product_name: string; quantity: number; unit: string; frequency: string; max_price_per_unit: number | null; priority: string; notes: string | null; is_active: boolean; profile?: Profile }
+
+function NeedCard({ need, isMine }: { need: NeedRow; isMine: boolean }) {
+  const [flipped, setFlipped] = useState(false)
+  const [editing, setEditing] = useState(false)
+
+  if (editing && isMine) return (
+    <NeedForm onClose={() => setEditing(false)}
+      initial={{ product_name: need.product_name, quantity: need.quantity, unit: need.unit, max_price_per_unit: need.max_price_per_unit, priority: need.priority, notes: need.notes, id: need.id }} />
+  )
+
+  const priorityCfg = PRIORITY_OPTIONS.find(p => p.value === need.priority) || PRIORITY_OPTIONS[1]
+
+  if (flipped) {
+    return (
+      <Card className={cn('border-chart-3/20', isMine && 'ring-1 ring-chart-3/20')}>
+        <CardContent className="py-3 px-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold flex items-center gap-1.5">
+              <BarChart3 className="h-3.5 w-3.5 text-chart-3" />
+              Matches for {need.product_name}
+            </p>
+            <div className="flex items-center gap-1">
+              {isMine && <button onClick={() => setEditing(true)} className="p-1 text-muted-foreground hover:text-foreground transition-colors rounded"><PenLine className="h-3.5 w-3.5" /></button>}
+              <button onClick={() => setFlipped(false)} className="p-1 text-muted-foreground hover:text-foreground transition-colors rounded"><RotateCcw className="h-3.5 w-3.5" /></button>
+            </div>
+          </div>
+          <InstantMatches query={need.product_name} forType="need" />
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-lg bg-muted/50 px-3 py-2">
+              <p className="text-[10px] text-muted-foreground">Quantity</p>
+              <p className="text-sm font-semibold">{need.quantity} {need.unit}</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 px-3 py-2">
+              <p className="text-[10px] text-muted-foreground">Max Price</p>
+              <p className="text-sm font-semibold">{need.max_price_per_unit ? `$${Number(need.max_price_per_unit).toFixed(2)}/${need.unit}` : 'Any'}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card className={cn('hover:border-chart-3/30 transition-colors', isMine && 'ring-1 ring-chart-3/20')}>
+      <CardContent className="py-3 px-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-500/10 shrink-0">
+            <ShoppingCart className="h-4 w-4 text-amber-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-foreground">{need.product_name}</p>
+            <p className="text-xs text-muted-foreground">
+              {need.quantity} {need.unit} &middot; {need.frequency.replace('_', ' ')}
+              {need.max_price_per_unit && ` \u2014 max $${Number(need.max_price_per_unit).toFixed(2)}/${need.unit}`}
+            </p>
+            {need.notes && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{need.notes}</p>}
+            <div className="flex items-center gap-2 mt-1.5">
+              {!isMine && need.profile?.display_name && (
+                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <User className="h-2.5 w-2.5" />{need.profile.display_name}
+                  {need.profile.neighborhood_hub && <span className="opacity-60">&middot; {need.profile.neighborhood_hub}</span>}
+                </span>
+              )}
+              <span className={cn('px-1.5 py-0.5 rounded-full text-[10px] font-medium', priorityCfg.color)}>
+                {priorityCfg.label}
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1 shrink-0">
+            <button onClick={() => setFlipped(true)} className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded hover:bg-muted/50">
+              <BarChart3 className="h-3.5 w-3.5" />
+            </button>
+            {isMine && (
+              <button onClick={() => setEditing(true)} className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded hover:bg-muted/50">
+                <PenLine className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+/* ── Offer Card ────────────────────────────────────────── */
+interface OfferRow { id: string; user_id: string; product_name: string; quantity_available: number; unit: string; price_per_unit: number | null; verification_status: string; notes: string | null; is_active: boolean; profile?: Profile }
+
+function OfferCard({ offer, isMine }: { offer: OfferRow; isMine: boolean }) {
+  const [flipped, setFlipped] = useState(false)
+  const [editing, setEditing] = useState(false)
+
+  if (editing && isMine) return (
+    <OfferForm onClose={() => setEditing(false)}
+      initial={{ product_name: offer.product_name, quantity_available: offer.quantity_available, unit: offer.unit, price_per_unit: offer.price_per_unit, notes: offer.notes, id: offer.id }} />
+  )
+
+  if (flipped) {
+    return (
+      <Card className={cn('border-primary/20', isMine && 'ring-1 ring-primary/20')}>
+        <CardContent className="py-3 px-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold flex items-center gap-1.5">
+              <BarChart3 className="h-3.5 w-3.5 text-primary" />
+              Demand for {offer.product_name}
+            </p>
+            <div className="flex items-center gap-1">
+              {isMine && <button onClick={() => setEditing(true)} className="p-1 text-muted-foreground hover:text-foreground transition-colors rounded"><PenLine className="h-3.5 w-3.5" /></button>}
+              <button onClick={() => setFlipped(false)} className="p-1 text-muted-foreground hover:text-foreground transition-colors rounded"><RotateCcw className="h-3.5 w-3.5" /></button>
+            </div>
+          </div>
+          <InstantMatches query={offer.product_name} forType="offer" />
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-lg bg-muted/50 px-3 py-2">
+              <p className="text-[10px] text-muted-foreground">Available</p>
+              <p className="text-sm font-semibold">{offer.quantity_available} {offer.unit}</p>
+            </div>
+            <div className="rounded-lg bg-muted/50 px-3 py-2">
+              <p className="text-[10px] text-muted-foreground">Price</p>
+              <p className="text-sm font-semibold">{offer.price_per_unit ? `$${Number(offer.price_per_unit).toFixed(2)}/${offer.unit}` : 'Open to swap'}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card className={cn('hover:border-primary/30 transition-colors', isMine && 'ring-1 ring-primary/20')}>
+      <CardContent className="py-3 px-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 shrink-0">
+            <Leaf className="h-4 w-4 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-foreground">{offer.product_name}</p>
+            <p className="text-xs text-muted-foreground">
+              {offer.quantity_available} {offer.unit} available
+              {offer.price_per_unit ? ` \u2014 $${Number(offer.price_per_unit).toFixed(2)}/${offer.unit}` : ' \u2014 open to swap'}
+            </p>
+            {offer.notes && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{offer.notes}</p>}
+            <div className="flex items-center gap-2 mt-1.5">
+              {!isMine && offer.profile?.display_name && (
+                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <User className="h-2.5 w-2.5" />{offer.profile.display_name}
+                  {offer.profile.neighborhood_hub && <span className="opacity-60">&middot; {offer.profile.neighborhood_hub}</span>}
+                </span>
+              )}
+              <span className={cn(
+                'px-1.5 py-0.5 rounded-full text-[10px] font-medium',
+                offer.verification_status === 'multiple_verified' ? 'bg-primary/15 text-primary' :
+                offer.verification_status === 'peer_verified' ? 'bg-blue-500/15 text-blue-700' :
+                'bg-muted text-muted-foreground'
+              )}>
+                {(offer.verification_status || 'self reported').replace(/_/g, ' ')}
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1 shrink-0">
+            <button onClick={() => setFlipped(true)} className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded hover:bg-muted/50">
+              <BarChart3 className="h-3.5 w-3.5" />
+            </button>
+            {isMine && (
+              <button onClick={() => setEditing(true)} className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded hover:bg-muted/50">
+                <PenLine className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+/* ── Orders Tab ────────────────────────────────────────── */
 function OrdersTab() {
   const { data: orders, isLoading } = useSWR<Order[]>('/api/orders', fetcher)
 
@@ -375,7 +543,7 @@ function OrderCard({ order }: { order: Order }) {
             <div className="flex items-center gap-1.5">
               <p className="text-sm font-medium text-foreground truncate">
                 {order.order_type === 'swap' ? 'Swap' : order.order_type === 'mixed' ? 'Mixed' : 'Purchase'}
-                {order.notes && <span className="text-muted-foreground font-normal"> -- {order.notes}</span>}
+                {order.notes && <span className="text-muted-foreground font-normal"> &mdash; {order.notes}</span>}
               </p>
             </div>
             <div className="flex items-center gap-2 mt-0.5">
@@ -385,6 +553,7 @@ function OrderCard({ order }: { order: Order }) {
               {order.money_amount > 0 && <span className="text-[10px] text-muted-foreground">${Number(order.money_amount).toFixed(2)}</span>}
             </div>
           </div>
+          <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform shrink-0', expanded && 'rotate-180')} />
         </div>
 
         {expanded && (
@@ -427,253 +596,205 @@ function OrderCard({ order }: { order: Order }) {
   )
 }
 
-/* ── Flippable Need Card ─────────────────────────────── */
-interface NeedRow { id: string; product_name: string; quantity: number; unit: string; frequency: string; max_price_per_unit: number | null; priority: string; notes: string | null; is_active: boolean; profile?: Profile }
-
-function NeedCard({ need }: { need: NeedRow }) {
-  const [flipped, setFlipped] = useState(false)
-  const [editing, setEditing] = useState(false)
-
-  if (editing) return (
-    <NeedForm
-      onClose={() => setEditing(false)}
-      initial={{ product_name: need.product_name, quantity: need.quantity, unit: need.unit, max_price_per_unit: need.max_price_per_unit, priority: need.priority, notes: need.notes, id: need.id }}
-    />
-  )
-
-  const priorityCfg = PRIORITY_OPTIONS.find(p => p.value === need.priority) || PRIORITY_OPTIONS[1]
-
-  if (flipped) {
-    // Back: stats + matching
-    return (
-      <Card className="border-chart-3/20">
-        <CardContent className="py-3 px-4">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-semibold flex items-center gap-1.5">
-              <BarChart3 className="h-3.5 w-3.5 text-chart-3" />
-              Matches for {need.product_name}
-            </p>
-            <div className="flex items-center gap-1">
-              <button onClick={() => setEditing(true)} className="p-1 text-muted-foreground hover:text-foreground transition-colors rounded">
-                <PenLine className="h-3.5 w-3.5" />
-              </button>
-              <button onClick={() => setFlipped(false)} className="p-1 text-muted-foreground hover:text-foreground transition-colors rounded">
-                <RotateCcw className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-          <InstantMatches query={need.product_name} forType="need" />
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <div className="rounded-lg bg-muted/50 px-3 py-2">
-              <p className="text-[10px] text-muted-foreground">Quantity</p>
-              <p className="text-sm font-semibold">{need.quantity} {need.unit}</p>
-            </div>
-            <div className="rounded-lg bg-muted/50 px-3 py-2">
-              <p className="text-[10px] text-muted-foreground">Max Price</p>
-              <p className="text-sm font-semibold">{need.max_price_per_unit ? `$${Number(need.max_price_per_unit).toFixed(2)}/${need.unit}` : 'Any'}</p>
-            </div>
-            <div className="rounded-lg bg-muted/50 px-3 py-2">
-              <p className="text-[10px] text-muted-foreground">Frequency</p>
-              <p className="text-sm font-semibold capitalize">{need.frequency.replace('_', ' ')}</p>
-            </div>
-            <div className="rounded-lg bg-muted/50 px-3 py-2">
-              <p className="text-[10px] text-muted-foreground">Urgency</p>
-              <p className={cn('text-sm font-semibold', priorityCfg.color.split(' ')[1])}>{priorityCfg.label}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  // Front
-  return (
-    <Card className="hover:border-chart-3/30 transition-colors">
-      <CardContent className="py-3 px-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-500/10 shrink-0">
-            <ShoppingCart className="h-4 w-4 text-amber-600" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-foreground">{need.product_name}</p>
-            <p className="text-xs text-muted-foreground">
-              {need.quantity} {need.unit} -- {need.frequency.replace('_', ' ')}
-              {need.max_price_per_unit && ` -- max $${Number(need.max_price_per_unit).toFixed(2)}/${need.unit}`}
-            </p>
-            {need.notes && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{need.notes}</p>}
-            <div className="flex items-center gap-2 mt-1.5">
-              {need.profile?.display_name && <span className="text-[10px] text-muted-foreground">{need.profile.display_name}</span>}
-              <span className={cn('px-1.5 py-0.5 rounded-full text-[10px] font-medium', priorityCfg.color)}>
-                {priorityCfg.label}
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-col gap-1 shrink-0">
-            <button onClick={() => setFlipped(true)} className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded hover:bg-muted/50">
-              <BarChart3 className="h-3.5 w-3.5" />
-            </button>
-            <button onClick={() => setEditing(true)} className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded hover:bg-muted/50">
-              <PenLine className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-/* ── Flippable Offer Card ────────────────────────────── */
-interface OfferRow { id: string; product_name: string; quantity_available: number; unit: string; price_per_unit: number | null; verification_status: string; notes: string | null; is_active: boolean; profile?: Profile }
-
-function OfferCard({ offer }: { offer: OfferRow }) {
-  const [flipped, setFlipped] = useState(false)
-  const [editing, setEditing] = useState(false)
-
-  if (editing) return (
-    <OfferForm
-      onClose={() => setEditing(false)}
-      initial={{ product_name: offer.product_name, quantity_available: offer.quantity_available, unit: offer.unit, price_per_unit: offer.price_per_unit, notes: offer.notes, id: offer.id }}
-    />
-  )
-
-  if (flipped) {
-    return (
-      <Card className="border-primary/20">
-        <CardContent className="py-3 px-4">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-semibold flex items-center gap-1.5">
-              <BarChart3 className="h-3.5 w-3.5 text-primary" />
-              Demand for {offer.product_name}
-            </p>
-            <div className="flex items-center gap-1">
-              <button onClick={() => setEditing(true)} className="p-1 text-muted-foreground hover:text-foreground transition-colors rounded">
-                <PenLine className="h-3.5 w-3.5" />
-              </button>
-              <button onClick={() => setFlipped(false)} className="p-1 text-muted-foreground hover:text-foreground transition-colors rounded">
-                <RotateCcw className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-          <InstantMatches query={offer.product_name} forType="offer" />
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <div className="rounded-lg bg-muted/50 px-3 py-2">
-              <p className="text-[10px] text-muted-foreground">Available</p>
-              <p className="text-sm font-semibold">{offer.quantity_available} {offer.unit}</p>
-            </div>
-            <div className="rounded-lg bg-muted/50 px-3 py-2">
-              <p className="text-[10px] text-muted-foreground">Price</p>
-              <p className="text-sm font-semibold">{offer.price_per_unit ? `$${Number(offer.price_per_unit).toFixed(2)}/${offer.unit}` : 'Open to swap'}</p>
-            </div>
-            <div className="col-span-2 rounded-lg bg-muted/50 px-3 py-2">
-              <p className="text-[10px] text-muted-foreground">Verification</p>
-              <p className="text-sm font-semibold capitalize">{(offer.verification_status || 'self_reported').replace(/_/g, ' ')}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  return (
-    <Card className="hover:border-primary/30 transition-colors">
-      <CardContent className="py-3 px-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 shrink-0">
-            <Leaf className="h-4 w-4 text-primary" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-foreground">{offer.product_name}</p>
-            <p className="text-xs text-muted-foreground">
-              {offer.quantity_available} {offer.unit} available
-              {offer.price_per_unit ? ` -- $${Number(offer.price_per_unit).toFixed(2)}/${offer.unit}` : ' -- open to swap'}
-            </p>
-            {offer.notes && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{offer.notes}</p>}
-            <div className="flex items-center gap-2 mt-1.5">
-              {offer.profile?.display_name && <span className="text-[10px] text-muted-foreground">{offer.profile.display_name}</span>}
-              <span className={cn(
-                'px-1.5 py-0.5 rounded-full text-[10px] font-medium',
-                offer.verification_status === 'multiple_verified' ? 'bg-primary/15 text-primary' :
-                offer.verification_status === 'peer_verified' ? 'bg-blue-500/15 text-blue-700' :
-                'bg-muted text-muted-foreground'
-              )}>
-                {(offer.verification_status || 'self_reported').replace(/_/g, ' ')}
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-col gap-1 shrink-0">
-            <button onClick={() => setFlipped(true)} className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded hover:bg-muted/50">
-              <BarChart3 className="h-3.5 w-3.5" />
-            </button>
-            <button onClick={() => setEditing(true)} className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded hover:bg-muted/50">
-              <PenLine className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-/* ── Needs Tab ───────────────────────────────────────── */
+/* ── Needs Tab: Mine at top, Browse below ─────────────── */
 function NeedsTab() {
+  const currentUserId = useCurrentUser()
   const [showForm, setShowForm] = useState(false)
+  const [groupBy, setGroupBy] = useState<GroupBy>('all')
+  const [browseOpen, setBrowseOpen] = useState(false)
   const { data: needs, isLoading } = useSWR<NeedRow[]>('/api/orders/listings?type=needs', fetcher)
+
+  const mine = useMemo(() => (needs || []).filter(n => n.user_id === currentUserId), [needs, currentUserId])
+  const others = useMemo(() => (needs || []).filter(n => n.user_id !== currentUserId), [needs, currentUserId])
+
+  const grouped = useMemo(() => {
+    if (groupBy === 'hub') {
+      const map = new Map<string, NeedRow[]>()
+      others.forEach(n => {
+        const hub = n.profile?.neighborhood_hub || 'Unknown Hub'
+        if (!map.has(hub)) map.set(hub, [])
+        map.get(hub)!.push(n)
+      })
+      return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+    }
+    if (groupBy === 'category') {
+      const map = new Map<string, NeedRow[]>()
+      others.forEach(n => {
+        const cat = n.product_name.split(' ').pop() || 'Other'
+        if (!map.has(cat)) map.set(cat, [])
+        map.get(cat)!.push(n)
+      })
+      return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+    }
+    return null
+  }, [others, groupBy])
 
   return (
     <div className="space-y-3">
+      {/* + Need form / button */}
       {showForm ? (
         <NeedForm onClose={() => setShowForm(false)} />
       ) : (
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-chart-3/30 py-3 text-sm font-medium text-chart-3 hover:bg-chart-3/5 hover:border-chart-3/50 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Post a Need
+        <button onClick={() => setShowForm(true)}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-chart-3/30 py-3 text-sm font-medium text-chart-3 hover:bg-chart-3/5 hover:border-chart-3/50 transition-colors">
+          <Plus className="h-4 w-4" /> Post a Need
         </button>
       )}
 
-      {isLoading ? (
-        <div className="space-y-3">{[1, 2].map(i => <Card key={i} className="animate-pulse"><CardContent className="py-4 px-4"><div className="h-12 bg-muted rounded" /></CardContent></Card>)}</div>
-      ) : !needs?.length ? (
+      {isLoading && <div className="space-y-3">{[1, 2].map(i => <Card key={i} className="animate-pulse"><CardContent className="py-4 px-4"><div className="h-12 bg-muted rounded" /></CardContent></Card>)}</div>}
+
+      {/* My Needs */}
+      {mine.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 pt-1">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">My Needs</p>
+            <span className="text-[10px] text-muted-foreground/40">{mine.length}</span>
+          </div>
+          {mine.map(n => <NeedCard key={n.id} need={n} isMine />)}
+        </>
+      )}
+
+      {/* Browse others */}
+      {others.length > 0 && (
+        <>
+          <button onClick={() => setBrowseOpen(!browseOpen)}
+            className="flex w-full items-center justify-between pt-2 pb-1 group">
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Browse Needs</p>
+              <span className="text-[10px] text-muted-foreground/40">{others.length}</span>
+            </div>
+            <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground/40 transition-transform', browseOpen && 'rotate-180')} />
+          </button>
+
+          {browseOpen && (
+            <div className="space-y-3">
+              <GroupChips value={groupBy} onChange={setGroupBy} />
+
+              {grouped ? (
+                grouped.map(([label, items]) => (
+                  <div key={label}>
+                    <GroupHeader label={label} />
+                    <div className="space-y-2 mt-1">
+                      {items.map(n => <NeedCard key={n.id} need={n} isMine={false} />)}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                others.map(n => <NeedCard key={n.id} need={n} isMine={false} />)
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {!isLoading && !mine.length && !others.length && (
         <Card><CardContent className="py-10 text-center">
           <ShoppingCart className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
           <p className="text-sm font-semibold">No active needs</p>
           <p className="text-xs text-muted-foreground mt-1">Post what you are looking for</p>
         </CardContent></Card>
-      ) : needs.map(need => <NeedCard key={need.id} need={need} />)}
+      )}
     </div>
   )
 }
 
-/* ── Offers Tab ──────────────────────────────────────── */
+/* ── Offers Tab: Mine at top, Browse below ────────────── */
 function OffersTab() {
+  const currentUserId = useCurrentUser()
   const [showForm, setShowForm] = useState(false)
+  const [groupBy, setGroupBy] = useState<GroupBy>('all')
+  const [browseOpen, setBrowseOpen] = useState(false)
   const { data: offers, isLoading } = useSWR<OfferRow[]>('/api/orders/listings?type=offers', fetcher)
+
+  const mine = useMemo(() => (offers || []).filter(o => o.user_id === currentUserId), [offers, currentUserId])
+  const others = useMemo(() => (offers || []).filter(o => o.user_id !== currentUserId), [offers, currentUserId])
+
+  const grouped = useMemo(() => {
+    if (groupBy === 'hub') {
+      const map = new Map<string, OfferRow[]>()
+      others.forEach(o => {
+        const hub = o.profile?.neighborhood_hub || 'Unknown Hub'
+        if (!map.has(hub)) map.set(hub, [])
+        map.get(hub)!.push(o)
+      })
+      return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+    }
+    if (groupBy === 'category') {
+      const map = new Map<string, OfferRow[]>()
+      others.forEach(o => {
+        const cat = o.product_name.split(' ').pop() || 'Other'
+        if (!map.has(cat)) map.set(cat, [])
+        map.get(cat)!.push(o)
+      })
+      return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+    }
+    return null
+  }, [others, groupBy])
 
   return (
     <div className="space-y-3">
       {showForm ? (
         <OfferForm onClose={() => setShowForm(false)} />
       ) : (
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary/30 py-3 text-sm font-medium text-primary hover:bg-primary/5 hover:border-primary/50 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Post an Offer
+        <button onClick={() => setShowForm(true)}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary/30 py-3 text-sm font-medium text-primary hover:bg-primary/5 hover:border-primary/50 transition-colors">
+          <Plus className="h-4 w-4" /> Post an Offer
         </button>
       )}
 
-      {isLoading ? (
-        <div className="space-y-3">{[1, 2].map(i => <Card key={i} className="animate-pulse"><CardContent className="py-4 px-4"><div className="h-12 bg-muted rounded" /></CardContent></Card>)}</div>
-      ) : !offers?.length ? (
+      {isLoading && <div className="space-y-3">{[1, 2].map(i => <Card key={i} className="animate-pulse"><CardContent className="py-4 px-4"><div className="h-12 bg-muted rounded" /></CardContent></Card>)}</div>}
+
+      {/* My Offers */}
+      {mine.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 pt-1">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">My Offers</p>
+            <span className="text-[10px] text-muted-foreground/40">{mine.length}</span>
+          </div>
+          {mine.map(o => <OfferCard key={o.id} offer={o} isMine />)}
+        </>
+      )}
+
+      {/* Browse others */}
+      {others.length > 0 && (
+        <>
+          <button onClick={() => setBrowseOpen(!browseOpen)}
+            className="flex w-full items-center justify-between pt-2 pb-1 group">
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Browse Offers</p>
+              <span className="text-[10px] text-muted-foreground/40">{others.length}</span>
+            </div>
+            <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground/40 transition-transform', browseOpen && 'rotate-180')} />
+          </button>
+
+          {browseOpen && (
+            <div className="space-y-3">
+              <GroupChips value={groupBy} onChange={setGroupBy} />
+
+              {grouped ? (
+                grouped.map(([label, items]) => (
+                  <div key={label}>
+                    <GroupHeader label={label} />
+                    <div className="space-y-2 mt-1">
+                      {items.map(o => <OfferCard key={o.id} offer={o} isMine={false} />)}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                others.map(o => <OfferCard key={o.id} offer={o} isMine={false} />)
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {!isLoading && !mine.length && !others.length && (
         <Card><CardContent className="py-10 text-center">
           <Leaf className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
           <p className="text-sm font-semibold">No active offers</p>
           <p className="text-xs text-muted-foreground mt-1">List your surplus products</p>
         </CardContent></Card>
-      ) : offers.map(offer => <OfferCard key={offer.id} offer={offer} />)}
+      )}
     </div>
   )
 }
