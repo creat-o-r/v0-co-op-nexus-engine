@@ -55,7 +55,7 @@ export function OrdersPageClient() {
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <h1 className="text-lg font-bold text-foreground">Orders</h1>
-          <a href="/orders?tab=preferences" className="text-muted-foreground hover:text-foreground transition-colors">
+          <a href="/orders/preferences" className="text-muted-foreground hover:text-foreground transition-colors">
             <Settings className="h-4.5 w-4.5" />
             <span className="sr-only">Preferences</span>
           </a>
