@@ -85,9 +85,9 @@ export function DiscussionCard({ item, onLike, currentUserId, onShare }: Discuss
 
         {item.image_url && (
           <div className="rounded-lg overflow-hidden -mx-6">
-            <img 
-              src={item.image_url || "/placeholder.svg"} 
-              alt=""
+            <img
+              src={item.image_url || "/placeholder.svg"}
+              alt={item.title || "Discussion image"}
               className="w-full object-cover max-h-96"
             />
           </div>

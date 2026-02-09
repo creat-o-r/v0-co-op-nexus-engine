@@ -12,8 +12,7 @@ export async function GET() {
   })
 
   if (error) {
-    console.error('[v0] Matching engine error:', error)
-    return NextResponse.json({ matches: [] })
+    return NextResponse.json({ matches: [], error: error.message })
   }
 
   if (!rows || rows.length === 0) {

@@ -149,8 +149,7 @@ export async function GET(req: NextRequest) {
 }
 
 /** Fallback: search products table directly by id or name */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function productFallback(supabase: any, id: string | null, name: string | null) {
+async function productFallback(supabase: Awaited<ReturnType<typeof createClient>>, id: string | null, name: string | null) {
   let query = supabase
     .from("products")
     .select("id, name, description, category, product_type, image_url")

@@ -70,8 +70,8 @@ export function LogisticsList({ routes, userId }: LogisticsListProps) {
         setSelectedRoute(null);
         setNotes("");
       }
-    } catch (error) {
-      console.error("[v0] Error requesting route:", error);
+    } catch {
+      // Request failed - dialog stays open for retry
     } finally {
       setSubmitting(false);
     }

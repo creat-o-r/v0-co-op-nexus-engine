@@ -9,7 +9,7 @@ export async function GET() {
     // Public: return all orders for demo
     const { data, error } = await supabase
       .from('orders')
-      .select('*')
+      .select('id, initiator_id, counterparty_id, order_type, status, money_amount, money_direction, related_agreement_id, related_route_id, related_need_id, related_surplus_id, pickup_hub, dropoff_hub, notes, created_at, updated_at')
       .order('created_at', { ascending: false })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -18,10 +18,15 @@ export async function GET() {
     const orderIds = (data || []).map((o: { id: string }) => o.id)
     const userIds = [...new Set((data || []).flatMap((o: { initiator_id: string; counterparty_id: string }) => [o.initiator_id, o.counterparty_id]))]
 
-    const [{ data: items }, { data: profiles }] = await Promise.all([
-      supabase.from('order_items').select('*').in('order_id', orderIds),
-      supabase.from('profiles').select('*').in('id', userIds),
+    if (orderIds.length === 0) return NextResponse.json([])
+
+    const [{ data: items, error: itemsError }, { data: profiles, error: profilesError }] = await Promise.all([
+      supabase.from('order_items').select('id, order_id, product_id, product_type_id, surplus_id, product_name, quantity, unit, direction, price_per_unit, created_at').in('order_id', orderIds),
+      supabase.from('profiles').select('id, display_name, neighborhood_hub, trust_points, avatar_url').in('id', userIds),
     ])
+
+    if (itemsError) return NextResponse.json({ error: itemsError.message }, { status: 500 })
+    if (profilesError) return NextResponse.json({ error: profilesError.message }, { status: 500 })
 
     const profileMap = Object.fromEntries((profiles || []).map((p: { id: string }) => [p.id, p]))
     const itemMap: Record<string, typeof items> = {}
@@ -43,8 +48,8 @@ export async function GET() {
   // Authenticated: return user's orders
   const { data, error } = await supabase
     .from('orders')
-    .select('*')
-    .or(`initiator_id.eq.${user.id},counterparty_id.eq.${user.id}`)
+    .select('id, initiator_id, counterparty_id, order_type, status, money_amount, money_direction, related_agreement_id, related_route_id, related_need_id, related_surplus_id, pickup_hub, dropoff_hub, notes, created_at, updated_at')
+    .or('initiator_id.eq.' + user.id + ',counterparty_id.eq.' + user.id)
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -52,10 +57,15 @@ export async function GET() {
   const orderIds = (data || []).map((o: { id: string }) => o.id)
   const userIds = [...new Set((data || []).flatMap((o: { initiator_id: string; counterparty_id: string }) => [o.initiator_id, o.counterparty_id]))]
 
-  const [{ data: items }, { data: profiles }] = await Promise.all([
-    supabase.from('order_items').select('*').in('order_id', orderIds.length ? orderIds : ['none']),
-    supabase.from('profiles').select('*').in('id', userIds.length ? userIds : ['none']),
+  if (orderIds.length === 0) return NextResponse.json([])
+
+  const [{ data: items, error: itemsError }, { data: profiles, error: profilesError }] = await Promise.all([
+    supabase.from('order_items').select('id, order_id, product_id, product_type_id, surplus_id, product_name, quantity, unit, direction, price_per_unit, created_at').in('order_id', orderIds),
+    supabase.from('profiles').select('id, display_name, neighborhood_hub, trust_points, avatar_url').in('id', userIds),
   ])
+
+  if (itemsError) return NextResponse.json({ error: itemsError.message }, { status: 500 })
+  if (profilesError) return NextResponse.json({ error: profilesError.message }, { status: 500 })
 
   const profileMap = Object.fromEntries((profiles || []).map((p: { id: string }) => [p.id, p]))
   const itemMap: Record<string, typeof items> = {}

@@ -37,6 +37,8 @@ const PRIORITY_OPTIONS = [
   { value: 'high',   label: 'Urgent',    desc: 'Need this ASAP',          color: 'bg-red-500/15 text-red-700' },
 ] as const
 
+const UNIT_OPTIONS = ['kg', 'g', 'lb', 'oz', 'dozen', 'unit', 'bunch', 'loaf', 'jar', 'liter'] as const
+
 type Tab = 'orders' | 'needs' | 'offers'
 type GroupBy = 'all' | 'hub' | 'category'
 
@@ -200,7 +202,7 @@ function NeedForm({ onClose, initial }: { onClose: () => void; initial?: { produ
         <div className="grid grid-cols-3 gap-2">
           <Input type="number" placeholder="Qty" value={quantity} onChange={e => setQuantity(e.target.value)} className="text-sm" />
           <select value={unit} onChange={e => setUnit(e.target.value)} className="rounded-md border bg-background px-2 py-1.5 text-sm">
-            {['kg', 'g', 'lb', 'oz', 'dozen', 'unit', 'bunch', 'loaf', 'jar', 'liter'].map(u => <option key={u} value={u}>{u}</option>)}
+            {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
           </select>
           <Input type="number" placeholder="Max $/unit" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} className="text-sm" step="0.01" />
         </div>
@@ -282,7 +284,7 @@ function OfferForm({ onClose, initial }: { onClose: () => void; initial?: { prod
         <div className="grid grid-cols-3 gap-2">
           <Input type="number" placeholder="Qty" value={quantity} onChange={e => setQuantity(e.target.value)} className="text-sm" />
           <select value={unit} onChange={e => setUnit(e.target.value)} className="rounded-md border bg-background px-2 py-1.5 text-sm">
-            {['kg', 'g', 'lb', 'oz', 'dozen', 'unit', 'bunch', 'loaf', 'jar', 'liter'].map(u => <option key={u} value={u}>{u}</option>)}
+            {UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
           </select>
           <Input type="number" placeholder="$/unit" value={price} onChange={e => setPrice(e.target.value)} className="text-sm" step="0.01" />
         </div>

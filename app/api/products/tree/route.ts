@@ -8,9 +8,12 @@ export async function GET() {
 
   // Fetch all product types and products in parallel
   const [typesRes, productsRes] = await Promise.all([
-    supabase.from('product_types').select('*').order('name'),
-    supabase.from('products').select('*').order('name'),
+    supabase.from('product_types').select('id, name, category, created_at').order('name'),
+    supabase.from('products').select('id, name, description, category, product_type, product_type_id, unit, image_url, created_at').order('name'),
   ])
+
+  if (typesRes.error) return NextResponse.json({ error: typesRes.error.message }, { status: 500 })
+  if (productsRes.error) return NextResponse.json({ error: productsRes.error.message }, { status: 500 })
 
   const types = typesRes.data || []
   const products = productsRes.data || []

@@ -80,7 +80,7 @@ export function LabelPreview({ name, id }: { name?: string; id?: string }) {
     >
       {preview.image ? (
         <div className="w-12 h-12 rounded-md overflow-hidden bg-muted shrink-0">
-          <img src={preview.image} alt="" className="w-full h-full object-cover" />
+          <img src={preview.image} alt={preview.title} className="w-full h-full object-cover" />
         </div>
       ) : (
         <div className={cn('flex items-center justify-center w-10 h-10 rounded-md bg-background shrink-0', config.color)}>
@@ -148,7 +148,7 @@ export function AnswerPreview({ name }: { name: string }) {
     >
       {preview.image ? (
         <div className="w-5 h-5 rounded-sm overflow-hidden bg-muted shrink-0">
-          <img src={preview.image} alt="" className="w-full h-full object-cover" />
+          <img src={preview.image} alt={preview.title} className="w-full h-full object-cover" />
         </div>
       ) : (
         <Icon className={cn('h-3 w-3 shrink-0', config.color)} />
@@ -200,7 +200,7 @@ function LinkPreviewCard({ url }: { url: string }) {
     >
       {preview.image ? (
         <div className="w-10 h-10 rounded-md overflow-hidden bg-muted shrink-0">
-          <img src={preview.image} alt="" className="w-full h-full object-cover" />
+          <img src={preview.image} alt={preview.title} className="w-full h-full object-cover" />
         </div>
       ) : (
         <div className={cn('flex items-center justify-center w-8 h-8 rounded-md bg-background shrink-0', config.color)}>

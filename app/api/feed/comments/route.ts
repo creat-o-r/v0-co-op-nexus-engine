@@ -33,10 +33,14 @@ export async function GET(request: NextRequest) {
 
     // Batch-fetch profiles for all comment authors
     const userIds = [...new Set(interactions.map(i => i.user_id))]
-    const { data: profiles } = await supabase
+    const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
       .select("id, display_name, neighborhood_hub, avatar_url")
       .in("id", userIds)
+
+    if (profilesError) {
+      return NextResponse.json({ error: profilesError.message }, { status: 500 })
+    }
 
     const profileMap = new Map((profiles || []).map(p => [p.id, p]))
 
