@@ -93,7 +93,7 @@ export function LogisticsCard({ item, onAccept, onDecline }: LogisticsCardProps)
             <div className="flex-1">
               <div className="flex items-center gap-2 text-sm">
                 <div className="w-3 h-3 rounded-full bg-primary" />
-                <span className="font-medium text-foreground">{route?.start_hub || 'Pickup'}</span>
+                <a href={`/community?hub=${encodeURIComponent(route?.start_hub || '')}`} className="font-medium text-foreground hover:text-primary transition-colors">{route?.start_hub || 'Pickup'}</a>
               </div>
               
               <div className="ml-1.5 border-l-2 border-dashed border-muted-foreground/30 h-6" />
@@ -104,7 +104,7 @@ export function LogisticsCard({ item, onAccept, onDecline }: LogisticsCardProps)
                     <div key={idx}>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <div className="w-2 h-2 rounded-full bg-muted-foreground/50" />
-                        <span>{waypoint}</span>
+                        <a href={`/community?hub=${encodeURIComponent(waypoint)}`} className="hover:text-foreground transition-colors">{waypoint}</a>
                       </div>
                       <div className="ml-1.5 border-l-2 border-dashed border-muted-foreground/30 h-6" />
                     </div>
@@ -114,7 +114,7 @@ export function LogisticsCard({ item, onAccept, onDecline }: LogisticsCardProps)
               
               <div className="flex items-center gap-2 text-sm">
                 <div className="w-3 h-3 rounded-full bg-accent" />
-                <span className="font-medium text-foreground">{route?.end_hub || 'Dropoff'}</span>
+                <a href={`/community?hub=${encodeURIComponent(route?.end_hub || '')}`} className="font-medium text-foreground hover:text-primary transition-colors">{route?.end_hub || 'Dropoff'}</a>
               </div>
             </div>
             
@@ -150,10 +150,13 @@ export function LogisticsCard({ item, onAccept, onDecline }: LogisticsCardProps)
             <div>
               <p className="font-medium text-sm text-foreground">{profile.display_name}</p>
               {profile.neighborhood_hub && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <a
+                  href={`/community?hub=${encodeURIComponent(profile.neighborhood_hub)}`}
+                  className="text-xs text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors"
+                >
                   <MapPin className="h-3 w-3" />
                   {profile.neighborhood_hub}
-                </p>
+                </a>
               )}
             </div>
             {profile.trust_points > 0 && (

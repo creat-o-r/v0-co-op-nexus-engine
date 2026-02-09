@@ -3,10 +3,10 @@ import { LogisticsList } from "@/components/logistics/logistics-list";
 import { Button } from "@/components/ui/button";
 import { Plus, Truck, MapPin, Package } from "lucide-react";
 import Link from "next/link";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 
 export const metadata = {
-  title: "Logistics | Co-Op Nexus",
+  title: "Routes | Co-Op Nexus",
   description: "Share routes, coordinate pickups, and organize deliveries with your community",
 };
 
@@ -14,30 +14,47 @@ export default async function LogisticsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Fetch active logistics routes
+  // Fetch active logistics routes with driver profiles
   const { data: routes, error } = await supabase
     .from("logistics_routes")
-    .select(`
-      *,
-      driver:profiles!logistics_routes_driver_id_fkey(id, display_name, avatar_url, trust_score)
-    `)
-    .eq("status", "scheduled")
-    .order("departure_time", { ascending: true });
+    .select("*")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
 
   if (error) {
     console.error("[v0] Error fetching routes:", error);
   }
 
-  // Get stats
+  // Fetch driver profiles separately
+  const driverIds = [...new Set((routes || []).map(r => r.user_id))];
+  let profilesMap: Record<string, { display_name: string | null; avatar_url: string | null; trust_points: number }> = {};
+  
+  if (driverIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, display_name, avatar_url, trust_points")
+      .in("id", driverIds);
+    
+    profiles?.forEach(p => {
+      profilesMap[p.id] = p;
+    });
+  }
+
+  const enrichedRoutes = (routes || []).map(r => ({
+    ...r,
+    driver: profilesMap[r.user_id] || null,
+  }));
+
+  // Stats
   const { count: totalRoutes } = await supabase
     .from("logistics_routes")
     .select("*", { count: "exact", head: true })
-    .eq("status", "scheduled");
+    .eq("is_active", true);
 
-  const { count: activeHubs } = await supabase
+  const { count: hubCount } = await supabase
     .from("profiles")
     .select("*", { count: "exact", head: true })
-    .eq("is_pickup_point", true);
+    .eq("is_distribution_hub", true);
 
   return (
     <main className="min-h-screen pb-20 md:pb-8">
@@ -45,7 +62,7 @@ export default async function LogisticsPage() {
         {/* Header */}
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Logistics Bridge</h1>
+            <h1 className="text-2xl font-bold text-foreground">Routes</h1>
             <p className="text-sm text-muted-foreground">
               Share your route or find a ride for your goods
             </p>
@@ -60,89 +77,39 @@ export default async function LogisticsPage() {
           )}
         </div>
 
-        {/* Stats Cards */}
-        <div className="mb-8 grid gap-4 sm:grid-cols-3">
+        {/* Stats */}
+        <div className="mb-6 grid gap-3 grid-cols-3">
           <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Scheduled Routes</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <Truck className="h-5 w-5 text-primary" />
-                <span className="text-2xl font-bold">{totalRoutes || 0}</span>
+            <CardContent className="py-3 px-4">
+              <CardDescription className="text-[10px]">Active Routes</CardDescription>
+              <div className="flex items-center gap-2 mt-1">
+                <Truck className="h-4 w-4 text-primary" />
+                <span className="text-xl font-bold">{totalRoutes || 0}</span>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Active Pickup Hubs</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <MapPin className="h-5 w-5 text-primary" />
-                <span className="text-2xl font-bold">{activeHubs || 0}</span>
+            <CardContent className="py-3 px-4">
+              <CardDescription className="text-[10px]">Distribution Hubs</CardDescription>
+              <div className="flex items-center gap-2 mt-1">
+                <MapPin className="h-4 w-4 text-primary" />
+                <span className="text-xl font-bold">{hubCount || 0}</span>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Avg Savings</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <Package className="h-5 w-5 text-primary" />
-                <span className="text-2xl font-bold">40%</span>
+            <CardContent className="py-3 px-4">
+              <CardDescription className="text-[10px]">Avg Savings</CardDescription>
+              <div className="flex items-center gap-2 mt-1">
+                <Package className="h-4 w-4 text-primary" />
+                <span className="text-xl font-bold">40%</span>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* How It Works */}
-        <Card className="mb-8 bg-primary/5">
-          <CardHeader>
-            <CardTitle className="text-lg">How the Logistics Bridge Works</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="flex gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  1
-                </div>
-                <div>
-                  <p className="font-medium">Share Your Route</p>
-                  <p className="text-sm text-muted-foreground">
-                    Driving past a farm? Post your route and available capacity.
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  2
-                </div>
-                <div>
-                  <p className="font-medium">Match with Orders</p>
-                  <p className="text-sm text-muted-foreground">
-                    {"We'll match your route with pending orders that need delivery."}
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  3
-                </div>
-                <div>
-                  <p className="font-medium">Earn Trust</p>
-                  <p className="text-sm text-muted-foreground">
-                    Complete deliveries to build your trust score and help the community.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Routes List */}
-        <LogisticsList routes={routes || []} userId={user?.id} />
+        <LogisticsList routes={enrichedRoutes} userId={user?.id} />
       </div>
     </main>
   );

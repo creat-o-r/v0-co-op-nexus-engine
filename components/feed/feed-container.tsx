@@ -12,6 +12,8 @@ import { Loader2, RefreshCw, Pin, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { DoneScenarioCard, type DoneItem } from './done-scenario-card'
+import { MatchCard, type MatchResult } from './match-card'
+import useSWR from 'swr'
 
 interface FeedContainerProps {
   initialItems: FeedItem[]
@@ -47,6 +49,49 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
   const supabase = createClient()
 
   const userTalents = (userProfile?.talents || []) as Talent[]
+
+  // Fetch matches from engine
+  const fetcher = (url: string) => fetch(url).then(r => r.json())
+  const { data: matchData } = useSWR<{ matches: MatchResult[] }>(
+    userProfile?.id ? '/api/feed/matches' : null,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 60000 }
+  )
+  const matches = matchData?.matches || []
+  const [dismissedMatches, setDismissedMatches] = useState<Set<string>>(new Set())
+  const visibleMatches = matches.filter(m => !dismissedMatches.has(m.match_id))
+
+  const handleDismissMatch = useCallback((matchId: string) => {
+    setDismissedMatches(prev => new Set(prev).add(matchId))
+  }, [])
+
+  const handleProposeOrder = useCallback(async (match: MatchResult) => {
+    await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        counterparty_id: match.surplus_id, // Will be resolved to the seller's user_id by the API
+        order_type: 'purchase',
+        related_need_id: match.need_id,
+        related_surplus_id: match.surplus_id,
+        related_route_id: match.route_id,
+        pickup_hub: match.seller_hub,
+        dropoff_hub: match.buyer_hub,
+        money_amount: match.offer_price ? match.offer_price * Math.min(match.available_qty, match.needed_qty) : 0,
+        money_direction: 'initiator_pays',
+        notes: `Auto-matched: ${match.product_name}`,
+        items: [{
+          product_name: match.product_name,
+          quantity: Math.min(match.available_qty, match.needed_qty),
+          unit: match.unit,
+          direction: 'to_initiator',
+          surplus_id: match.surplus_id,
+          price_per_unit: match.offer_price,
+        }],
+      }),
+    })
+    setDismissedMatches(prev => new Set(prev).add(match.match_id))
+  }, [])
 
   // Track items that were answered in this session (move to done)
   const [sessionDone, setSessionDone] = useState<DoneItem[]>([])
@@ -294,6 +339,7 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
             item={item}
             onLike={handleScenarioLike}
             onDiscard={handleScenarioDiscard}
+            currentUserId={userProfile?.id}
             initialSelection={priorAnswer}
           />
         )
@@ -304,6 +350,7 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
             key={item.id}
             item={item}
             onLike={handleProductLike}
+            currentUserId={userProfile?.id}
           />
         )
       case 'logistics':
@@ -331,6 +378,7 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
             key={item.id}
             item={item}
             onLike={handleProductLike}
+            currentUserId={userProfile?.id}
           />
         )
       default:
@@ -365,6 +413,7 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
     logistics: 'Logistics',
     discussion: 'Discussion',
     verification: 'Verification',
+    match: 'Matches',
   }
 
   // ── Empty state ───────────────────────────────────────────────
@@ -418,6 +467,30 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
             </button>
           )
         })}
+
+        {/* Matches chip */}
+        {visibleMatches.length > 0 && (
+          <button
+            onClick={() => {
+              setActiveType(activeType === 'match' as FeedType ? null : 'match' as FeedType)
+              setViewMode('pending')
+            }}
+            className={cn(
+              'shrink-0 rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
+              activeType === ('match' as FeedType)
+                ? 'bg-chart-3 text-white'
+                : 'bg-muted text-muted-foreground hover:text-foreground'
+            )}
+          >
+            Matches
+            <span className={cn(
+              'ml-1 tabular-nums',
+              activeType === ('match' as FeedType) ? 'text-white/70' : 'text-muted-foreground/50'
+            )}>
+              {visibleMatches.length}
+            </span>
+          </button>
+        )}
 
         {/* Done chip -- navigate to answered cards */}
         {doneCount > 0 && (
@@ -513,6 +586,7 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
                   key={item.id}
                   item={item as DoneItem}
                   onEdit={handleEditDone}
+                  currentUserId={userProfile?.id}
                 />
               ))
             )}
@@ -529,7 +603,25 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
             </p>
           ) : (
             <>
-              {visibleItems.map(renderFeedItem)}
+              {visibleItems.map((item, idx) => (
+                <div key={item.id}>
+                  {renderFeedItem(item)}
+                  {/* Inject match cards after the 1st item */}
+                  {idx === 0 && visibleMatches.length > 0 && (
+                    <div className="space-y-3 mt-3">
+                      {visibleMatches.slice(0, showAll ? visibleMatches.length : 1).map(m => (
+                        <MatchCard
+                          key={m.match_id}
+                          match={m}
+                          currentUserId={userProfile?.id}
+                          onPropose={handleProposeOrder}
+                          onDismiss={handleDismissMatch}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
 
               {/* Counter row: tappable 1 / 12 + show all */}
               {displayItems.length > 1 && (

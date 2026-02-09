@@ -8,17 +8,21 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Heart, MessageCircle, MapPin, ShieldCheck, Leaf } from 'lucide-react'
 import type { FeedItem } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
+import { CommentThread } from './comment-thread'
+import Link from 'next/link'
 
 interface ProductCardProps {
   item: FeedItem
   onLike: (itemId: string) => Promise<void>
-  onComment?: (itemId: string) => void
+  currentUserId?: string
   onContact?: (itemId: string) => void
 }
 
-export function ProductCard({ item, onLike, onComment, onContact }: ProductCardProps) {
+export function ProductCard({ item, onLike, currentUserId, onContact }: ProductCardProps) {
   const [isLiked, setIsLiked] = useState(!!item.user_interaction)
   const [likesCount, setLikesCount] = useState(item.likes_count)
+  const [commentsCount, setCommentsCount] = useState(item.comments_count)
+  const [showComments, setShowComments] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const surplus = item.surplus
@@ -85,16 +89,22 @@ export function ProductCard({ item, onLike, onComment, onContact }: ProductCardP
             <div>
               <p className="font-medium text-sm text-foreground">{profile?.display_name || 'Anonymous'}</p>
               {profile?.neighborhood_hub && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Link
+                  href={`/community?hub=${encodeURIComponent(profile.neighborhood_hub)}`}
+                  className="text-xs text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors"
+                >
                   <MapPin className="h-3 w-3" />
                   {profile.neighborhood_hub}
-                </p>
+                </Link>
               )}
             </div>
           </div>
-          <Badge variant="outline" className="shrink-0 text-foreground border-border">
+          <Link
+            href={`/products?category=${encodeURIComponent(item.product?.category || 'Product')}`}
+            className="shrink-0 px-2.5 py-0.5 border border-border rounded-full text-xs text-foreground hover:bg-muted transition-colors"
+          >
             {item.product?.category || 'Product'}
-          </Badge>
+          </Link>
         </div>
         
         <CardTitle className="text-lg mt-3 text-foreground">{item.title}</CardTitle>
@@ -144,15 +154,18 @@ export function ProductCard({ item, onLike, onComment, onContact }: ProductCardP
               <Heart className={cn('h-5 w-5', isLiked && 'fill-current')} />
               <span>{likesCount}</span>
             </button>
-            {onComment && (
-              <button 
-                onClick={() => onComment(item.id)}
-                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <MessageCircle className="h-5 w-5" />
-                <span>{item.comments_count}</span>
-              </button>
-            )}
+            <button 
+              onClick={() => setShowComments(!showComments)}
+              className={cn(
+                'flex items-center gap-1.5 text-sm transition-colors',
+                showComments
+                  ? 'text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <MessageCircle className="h-5 w-5" />
+              <span>{commentsCount}</span>
+            </button>
           </div>
           {onContact && (
             <Button 
@@ -164,6 +177,16 @@ export function ProductCard({ item, onLike, onComment, onContact }: ProductCardP
             </Button>
           )}
         </div>
+
+        {/* Comment thread */}
+        {showComments && (
+          <CommentThread
+            feedItemId={item.id}
+            currentUserId={currentUserId}
+            commentsCount={commentsCount}
+            onCountChange={setCommentsCount}
+          />
+        )}
       </CardContent>
     </Card>
   )

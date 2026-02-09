@@ -1,6 +1,6 @@
 export type Talent = 'Tech' | 'Negotiation' | 'Logistics' | 'Growing' | 'Admin' | 'Promotion'
 
-export type FeedType = 'scenario' | 'product' | 'logistics' | 'build' | 'discussion' | 'verification'
+export type FeedType = 'scenario' | 'product' | 'logistics' | 'build' | 'discussion' | 'verification' | 'match'
 
 export type InteractionType = 'like' | 'discard' | 'claim' | 'complete' | 'comment'
 
@@ -32,16 +32,62 @@ export interface Profile {
   updated_at: string
 }
 
+export interface ProductTypeGroup {
+  id: string
+  name: string
+  category: string
+  created_at: string
+  // Inherited from child products at query time
+  image_url?: string | null
+  description?: string | null
+  product_count?: number
+  products?: Product[]
+}
+
 export interface Product {
   id: string
   name: string
   description: string | null
   category: string
   product_type: ProductType
+  product_type_id: string | null
   ingredients: string[]
   unit: string
   image_url: string | null
   created_at: string
+}
+
+export interface FeedItem {
+  id: string
+  user_id: string
+  feed_type: FeedType
+  title: string
+  content: string | null
+  image_url: string | null
+  related_product_id: string | null
+  related_product_type_id: string | null
+  related_agreement_id: string | null
+  related_surplus_id: string | null
+  related_need_id: string | null
+  related_route_id: string | null
+  scenario_question: string | null
+  scenario_options: string[] | null
+  likes_count: number
+  comments_count: number
+  tagged_hubs: string[]
+  tagged_products: string[]
+  is_pinned: boolean
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  profile?: Profile
+  product?: Product
+  product_type?: ProductTypeGroup
+  agreement?: Agreement
+  surplus?: UserSurplus
+  need?: UserNeed
+  route?: LogisticsRoute
+  user_interaction?: FeedInteraction | null
 }
 
 export interface UserNeed {
@@ -117,37 +163,6 @@ export interface Agreement {
   product?: Product
 }
 
-export interface FeedItem {
-  id: string
-  user_id: string
-  feed_type: FeedType
-  title: string
-  content: string | null
-  image_url: string | null
-  related_product_id: string | null
-  related_agreement_id: string | null
-  related_surplus_id: string | null
-  related_need_id: string | null
-  related_route_id: string | null
-  scenario_question: string | null
-  scenario_options: string[] | null
-  likes_count: number
-  comments_count: number
-  tagged_hubs: string[]
-  tagged_products: string[]
-  is_pinned: boolean
-  is_active: boolean
-  created_at: string
-  updated_at: string
-  profile?: Profile
-  product?: Product
-  agreement?: Agreement
-  surplus?: UserSurplus
-  need?: UserNeed
-  route?: LogisticsRoute
-  user_interaction?: FeedInteraction | null
-}
-
 export interface FeedInteraction {
   id: string
   user_id: string
@@ -179,6 +194,113 @@ export interface ScenarioResponse {
   feed_item_id: string
   response_type: 'like' | 'discard'
   selected_option: string | null
+  created_at: string
+}
+
+export interface AgreementCollaborator {
+  id: string
+  agreement_id: string
+  user_id: string
+  role: 'owner' | 'collaborator'
+  added_at: string
+  profile?: Profile
+}
+
+export interface FeedItemDraft {
+  id: string
+  feed_item_id: string | null
+  agreement_id: string
+  proposed_by: string
+  draft_title: string
+  draft_content: string | null
+  draft_question: string | null
+  draft_options: string[] | null
+  draft_tagged_products: string[]
+  draft_tagged_hubs: string[]
+  draft_image_url: string | null
+  status: 'pending' | 'approved' | 'rejected' | 'withdrawn'
+  approvals_needed: number
+  approvals_received: number
+  change_summary: string | null
+  created_at: string
+  updated_at: string
+  proposed_by_profile?: Profile
+  approvals?: DraftApproval[]
+}
+
+export interface DraftApproval {
+  id: string
+  draft_id: string
+  user_id: string
+  approved: boolean
+  comment: string | null
+  created_at: string
+  profile?: Profile
+}
+
+export type OrderType = 'purchase' | 'swap' | 'mixed'
+
+export type OrderStatus =
+  | 'proposed'
+  | 'accepted'
+  | 'in_transit'
+  | 'delivered'
+  | 'completed'
+  | 'rejected'
+  | 'cancelled'
+  | 'disputed'
+
+export type ItemDirection = 'to_counterparty' | 'to_initiator'
+
+export interface OrderPreferences {
+  id: string
+  user_id: string
+  allow_swaps: boolean
+  allow_money: boolean
+  allow_mixed: boolean
+  min_trust_points: number
+  auto_accept: boolean
+  accepted_hubs: string[]
+  blacklisted_items: string[]
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Order {
+  id: string
+  initiator_id: string
+  counterparty_id: string
+  order_type: OrderType
+  status: OrderStatus
+  money_amount: number
+  money_direction: 'initiator_pays' | 'counterparty_pays' | null
+  related_agreement_id: string | null
+  related_route_id: string | null
+  related_need_id: string | null
+  related_surplus_id: string | null
+  pickup_hub: string | null
+  dropoff_hub: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+  initiator_profile?: Profile
+  counterparty_profile?: Profile
+  items?: OrderItem[]
+  route?: LogisticsRoute
+}
+
+export interface OrderItem {
+  id: string
+  order_id: string
+  product_id: string | null
+  product_type_id: string | null
+  surplus_id: string | null
+  product_name: string
+  quantity: number
+  unit: string
+  direction: ItemDirection
+  price_per_unit: number | null
   created_at: string
 }
 

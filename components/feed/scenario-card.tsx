@@ -7,19 +7,22 @@ import { Input } from '@/components/ui/input'
 import { Check, X, ChevronRight, PenLine } from 'lucide-react'
 import type { FeedItem } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
+import { ScenarioCardBackContent } from './scenario-card-back'
+import { ScenarioBottomBar } from './scenario-bottom-bar'
+import { ProductPill, LabelPreview } from './item-links'
+import { ScenarioEditSheet } from './scenario-edit-sheet'
 
 interface ScenarioCardProps {
   item: FeedItem
   onLike: (itemId: string, selectedOption?: string) => Promise<void>
   onDiscard: (itemId: string) => Promise<void>
-  /** Pre-fill from a prior answer (comma-separated string or null) */
+  currentUserId?: string
   initialSelection?: string | null
 }
 
-export function ScenarioCard({ item, onLike, onDiscard, initialSelection }: ScenarioCardProps) {
+export function ScenarioCard({ item, onLike, onDiscard, currentUserId, initialSelection }: ScenarioCardProps) {
   const options = item.scenario_options || []
 
-  // Parse initial selection: split by comma, separate known options from "other" text
   const parsedInitial = (() => {
     if (!initialSelection) return { known: [] as string[], other: '' }
     const parts = initialSelection.split(', ').filter(Boolean)
@@ -33,8 +36,11 @@ export function ScenarioCard({ item, onLike, onDiscard, initialSelection }: Scen
   const [isAnimating, setIsAnimating] = useState<'like' | 'discard' | null>(null)
   const [otherText, setOtherText] = useState(parsedInitial.other)
   const [showOtherInput, setShowOtherInput] = useState(parsedInitial.other.length > 0)
+  const [showComments, setShowComments] = useState(false)
+  const [commentsCount, setCommentsCount] = useState(item.comments_count)
+  const [isFlipped, setIsFlipped] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
 
-  // Detect multi-select from the question text itself (seed data uses "Select all that apply")
   const multiSelect = useMemo(() => {
     const q = (item.scenario_question || '').toLowerCase()
     return q.includes('select all') || q.includes('multi')
@@ -45,9 +51,7 @@ export function ScenarioCard({ item, onLike, onDiscard, initialSelection }: Scen
   const handleOptionSelect = useCallback((option: string) => {
     if (multiSelect) {
       setSelectedOptions(prev =>
-        prev.includes(option)
-          ? prev.filter(o => o !== option)
-          : [...prev, option]
+        prev.includes(option) ? prev.filter(o => o !== option) : [...prev, option]
       )
     } else {
       setSelectedOptions(prev => prev[0] === option ? [] : [option])
@@ -67,25 +71,49 @@ export function ScenarioCard({ item, onLike, onDiscard, initialSelection }: Scen
 
     setIsAnimating('like')
     setIsSubmitting(true)
-    try {
-      await onLike(item.id, response)
-    } finally {
-      setIsSubmitting(false)
-    }
+    try { await onLike(item.id, response) } finally { setIsSubmitting(false) }
   }
 
   const handleDiscard = async () => {
     setIsAnimating('discard')
     setIsSubmitting(true)
-    try {
-      await onDiscard(item.id)
-    } finally {
-      setIsSubmitting(false)
-    }
+    try { await onDiscard(item.id) } finally { setIsSubmitting(false) }
   }
 
+  /* ── Flipped: back content ─────────────────────── */
+  if (isFlipped) {
+    return (
+      <Card className="overflow-hidden border-2 border-border">
+        <CardContent className="px-4 py-4 space-y-4">
+          <ScenarioCardBackContent item={item} />
+          <ScenarioBottomBar
+            feedItemId={item.id}
+            currentUserId={currentUserId}
+            showComments={showComments}
+            commentsCount={commentsCount}
+            isFlipped
+            onToggleComments={() => setShowComments(!showComments)}
+            onFlip={() => setIsFlipped(false)}
+            onCommentsCountChange={setCommentsCount}
+            onEditScenario={item.related_agreement_id ? () => setEditOpen(true) : undefined}
+          />
+        </CardContent>
+
+        {item.related_agreement_id && (
+          <ScenarioEditSheet
+            open={editOpen}
+            onOpenChange={setEditOpen}
+            item={item}
+            agreementId={item.related_agreement_id}
+          />
+        )}
+      </Card>
+    )
+  }
+
+  /* ── Front: question + options ──────────────────── */
   return (
-    <Card 
+    <Card
       className={cn(
         'transition-all duration-300 overflow-hidden border-2 border-border',
         isAnimating === 'like' && 'translate-x-full opacity-0 border-primary',
@@ -94,25 +122,24 @@ export function ScenarioCard({ item, onLike, onDiscard, initialSelection }: Scen
     >
       <CardHeader className="pb-2 pt-4 px-4">
         <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-          <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full font-medium">
-            Scenario
-          </span>
+          <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full font-medium">Scenario</span>
           {item.tagged_products.length > 0 && (
-            <span className="px-2 py-0.5 bg-accent/30 text-accent-foreground rounded-full">
-              {item.tagged_products[0]}
-            </span>
+            <ProductPill name={item.tagged_products[0]} />
           )}
         </div>
         <CardTitle className="text-base text-balance leading-snug">{item.title}</CardTitle>
       </CardHeader>
-      
+
       <CardContent className="space-y-3 px-4 pb-4">
         {item.scenario_question && (
-          <p className="text-sm font-medium text-foreground leading-snug">
-            {item.scenario_question}
-          </p>
+          <p className="text-sm font-medium text-foreground leading-snug">{item.scenario_question}</p>
         )}
-        
+
+        {/* Product type preview on front */}
+        {item.tagged_products?.length > 0 && (
+          <LabelPreview name={item.tagged_products[0]} />
+        )}
+
         {options.length > 0 && (
           <div className="space-y-1.5">
             {options.map((option) => {
@@ -126,7 +153,7 @@ export function ScenarioCard({ item, onLike, onDiscard, initialSelection }: Scen
                     'w-full text-left px-3 py-2 rounded-lg border transition-all',
                     'hover:border-primary/50 hover:bg-primary/5',
                     isSelected
-                      ? 'border-primary bg-primary/10 text-foreground' 
+                      ? 'border-primary bg-primary/10 text-foreground'
                       : 'border-border bg-card text-foreground'
                   )}
                 >
@@ -135,9 +162,7 @@ export function ScenarioCard({ item, onLike, onDiscard, initialSelection }: Scen
                     {multiSelect ? (
                       <div className={cn(
                         'flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors',
-                        isSelected
-                          ? 'border-primary bg-primary'
-                          : 'border-muted-foreground/30 bg-card'
+                        isSelected ? 'border-primary bg-primary' : 'border-muted-foreground/30 bg-card'
                       )}>
                         {isSelected && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
                       </div>
@@ -149,7 +174,6 @@ export function ScenarioCard({ item, onLike, onDiscard, initialSelection }: Scen
               )
             })}
 
-            {/* Compact "Other" toggle */}
             <button
               onClick={toggleOtherInput}
               className={cn(
@@ -203,7 +227,28 @@ export function ScenarioCard({ item, onLike, onDiscard, initialSelection }: Scen
             <ChevronRight className="h-3.5 w-3.5 ml-1" />
           </Button>
         </div>
+
+        <ScenarioBottomBar
+          feedItemId={item.id}
+          currentUserId={currentUserId}
+          showComments={showComments}
+          commentsCount={commentsCount}
+          isFlipped={false}
+          onToggleComments={() => setShowComments(!showComments)}
+          onFlip={() => setIsFlipped(true)}
+          onCommentsCountChange={setCommentsCount}
+          onEditScenario={item.related_agreement_id ? () => setEditOpen(true) : undefined}
+        />
       </CardContent>
+
+      {item.related_agreement_id && (
+        <ScenarioEditSheet
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          item={item}
+          agreementId={item.related_agreement_id}
+        />
+      )}
     </Card>
   )
 }
