@@ -86,8 +86,9 @@ export function BuildTasksList({ tasks, userId, claimedTasks }: BuildTasksListPr
       {tasks.map((task) => {
         const isClaimed = localClaimed.includes(task.id);
         const metadata = task.build_metadata || {};
-        const progress = metadata.current_volunteers ? 
-          (metadata.current_volunteers / (metadata.volunteers_needed || 1)) * 100 : 0;
+        const currentVol = Number(metadata.current_volunteers) || 0;
+        const neededVol = Number(metadata.volunteers_needed) || 1;
+        const progress = currentVol > 0 ? (currentVol / neededVol) * 100 : 0;
         
         return (
           <Card key={task.id} className="transition-all hover:border-primary/50 hover:shadow-md">
@@ -95,10 +96,10 @@ export function BuildTasksList({ tasks, userId, claimedTasks }: BuildTasksListPr
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-lg">
-                    {skillIcons[metadata.skill_required || "tech"] || skillIcons.tech}
+                    {skillIcons[String(metadata.skill_required || "tech")] || skillIcons.tech}
                   </div>
                   <Badge variant="outline" className="capitalize">
-                    {metadata.skill_required || "general"}
+                    {String(metadata.skill_required || "general")}
                   </Badge>
                 </div>
                 <div className="flex items-center gap-1 text-sm font-medium text-primary">

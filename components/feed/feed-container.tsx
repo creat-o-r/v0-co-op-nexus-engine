@@ -8,6 +8,7 @@ import { LogisticsCard } from './logistics-card'
 import { BuildCard } from './build-card'
 import { DiscussionCard } from './discussion-card'
 import type { FeedItem, FeedType, Profile, Talent } from '@/lib/types/database'
+import { EXPAND_THRESHOLD } from '@/lib/constants'
 import { Loader2, RefreshCw, Pin, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -21,8 +22,6 @@ interface FeedContainerProps {
   userProfile?: Profile | null
   isOnboarding?: boolean
 }
-
-const EXPAND_THRESHOLD = 3
 
 type ViewMode = 'pending' | 'done'
 type DoneFilter = 'all' | 'answered' | 'skipped'
@@ -66,30 +65,37 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
   }, [])
 
   const handleProposeOrder = useCallback(async (match: MatchResult) => {
-    await fetch('/api/orders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        counterparty_id: match.surplus_id, // Will be resolved to the seller's user_id by the API
-        order_type: 'purchase',
-        related_need_id: match.need_id,
-        related_surplus_id: match.surplus_id,
-        related_route_id: match.route_id,
-        pickup_hub: match.seller_hub,
-        dropoff_hub: match.buyer_hub,
-        money_amount: match.offer_price ? match.offer_price * Math.min(match.available_qty, match.needed_qty) : 0,
-        money_direction: 'initiator_pays',
-        notes: `Auto-matched: ${match.product_name}`,
-        items: [{
-          product_name: match.product_name,
-          quantity: Math.min(match.available_qty, match.needed_qty),
-          unit: match.unit,
-          direction: 'to_initiator',
-          surplus_id: match.surplus_id,
-          price_per_unit: match.offer_price,
-        }],
-      }),
-    })
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          counterparty_id: match.surplus_id,
+          order_type: 'purchase',
+          related_need_id: match.need_id,
+          related_surplus_id: match.surplus_id,
+          related_route_id: match.route_id,
+          pickup_hub: match.seller_hub,
+          dropoff_hub: match.buyer_hub,
+          money_amount: match.offer_price ? match.offer_price * Math.min(match.available_qty, match.needed_qty) : 0,
+          money_direction: 'initiator_pays',
+          notes: `Auto-matched: ${match.product_name}`,
+          items: [{
+            product_name: match.product_name,
+            quantity: Math.min(match.available_qty, match.needed_qty),
+            unit: match.unit,
+            direction: 'to_initiator',
+            surplus_id: match.surplus_id,
+            price_per_unit: match.offer_price,
+          }],
+        }),
+      })
+      if (!res.ok) {
+        console.error('Failed to propose order:', await res.text())
+      }
+    } catch (err) {
+      console.error('Failed to propose order:', err)
+    }
     setDismissedMatches(prev => new Set(prev).add(match.match_id))
   }, [])
 
@@ -156,37 +162,49 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
     const item = items.find(i => i.id === itemId)
     if (!item) return
 
-    // Record the response
-    await supabase.from('scenario_responses').insert({
-      user_id: userProfile?.id,
-      feed_item_id: itemId,
-      response_type: 'like',
-      selected_option: selectedOption,
-    })
-
-    // If it's a product scenario, create a user need
-    if (item.tagged_products.length > 0) {
-      const productName = item.tagged_products[0]
-      await supabase.from('user_needs').insert({
+    try {
+      // Record the response
+      await supabase.from('scenario_responses').insert({
         user_id: userProfile?.id,
-        product_name: productName,
-        quantity: 1,
-        unit: 'each',
-        frequency: 'weekly',
-        notes: `From scenario: ${item.title}. Response: ${selectedOption || 'Yes'}`,
+        feed_item_id: itemId,
+        response_type: 'like',
+        selected_option: selectedOption,
       })
-    }
 
-    // Update talents if it's the talents scenario
-    if (item.title === 'Your Talents' && selectedOption) {
-      const selectedTalents = selectedOption.split(',').map(t => t.trim().split(' - ')[0])
-      const currentTalents = userProfile?.talents || []
-      const newTalents = [...new Set([...currentTalents, ...selectedTalents])]
-      
-      await supabase
-        .from('profiles')
-        .update({ talents: newTalents })
-        .eq('id', userProfile?.id)
+      // If it's a product scenario, create a user need
+      if (item.tagged_products.length > 0) {
+        const productName = item.tagged_products[0]
+        await supabase.from('user_needs').insert({
+          user_id: userProfile?.id,
+          product_name: productName,
+          quantity: 1,
+          unit: 'each',
+          frequency: 'weekly',
+          notes: `From scenario: ${item.title}. Response: ${selectedOption || 'Yes'}`,
+        })
+      }
+
+      // Update talents if it's the talents scenario
+      if (item.title === 'Your Talents' && selectedOption) {
+        // Parse talent names: handle "Tech - Build tools" format and plain "Tech" format
+        const selectedTalents = selectedOption
+          .split(',')
+          .map(t => t.trim())
+          .map(t => {
+            const dashIndex = t.indexOf(' - ')
+            return dashIndex > 0 ? t.slice(0, dashIndex).trim() : t
+          })
+          .filter(Boolean)
+        const currentTalents = (userProfile?.talents || []) as string[]
+        const newTalents = [...new Set([...currentTalents, ...selectedTalents])]
+
+        await supabase
+          .from('profiles')
+          .update({ talents: newTalents })
+          .eq('id', userProfile?.id)
+      }
+    } catch (err) {
+      console.error('Failed to record scenario response:', err)
     }
 
     // Move item to done, remove from pending, clear edited-out flag, reset done filter, auto-collapse
@@ -215,11 +233,15 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
   }, [items, supabase, userProfile, collapseIfNeeded])
 
   const handleScenarioDiscard = useCallback(async (itemId: string) => {
-    await supabase.from('scenario_responses').insert({
-      user_id: userProfile?.id,
-      feed_item_id: itemId,
-      response_type: 'discard',
-    })
+    try {
+      await supabase.from('scenario_responses').insert({
+        user_id: userProfile?.id,
+        feed_item_id: itemId,
+        response_type: 'discard',
+      })
+    } catch (err) {
+      console.error('Failed to record discard:', err)
+    }
 
     const sourceItem = items.find(i => i.id === itemId)
     startTransition(() => {
@@ -245,67 +267,83 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
   }, [items, supabase, userProfile, collapseIfNeeded])
 
   const handleProductLike = useCallback(async (itemId: string) => {
-    const { data: existing } = await supabase
-      .from('feed_interactions')
-      .select('id')
-      .eq('user_id', userProfile?.id)
-      .eq('feed_item_id', itemId)
-      .eq('interaction_type', 'like')
-      .single()
-
-    if (existing) {
-      await supabase
+    try {
+      const { data: existing } = await supabase
         .from('feed_interactions')
-        .delete()
-        .eq('id', existing.id)
-    } else {
-      await supabase.from('feed_interactions').insert({
-        user_id: userProfile?.id,
-        feed_item_id: itemId,
-        interaction_type: 'like',
-      })
+        .select('id')
+        .eq('user_id', userProfile?.id)
+        .eq('feed_item_id', itemId)
+        .eq('interaction_type', 'like')
+        .single()
+
+      if (existing) {
+        await supabase
+          .from('feed_interactions')
+          .delete()
+          .eq('id', existing.id)
+      } else {
+        await supabase.from('feed_interactions').insert({
+          user_id: userProfile?.id,
+          feed_item_id: itemId,
+          interaction_type: 'like',
+        })
+      }
+    } catch (err) {
+      console.error('Failed to toggle like:', err)
     }
   }, [supabase, userProfile])
 
   const handleLogisticsAccept = useCallback(async (itemId: string) => {
-    await supabase.from('feed_interactions').insert({
-      user_id: userProfile?.id,
-      feed_item_id: itemId,
-      interaction_type: 'claim',
-    })
+    try {
+      await supabase.from('feed_interactions').insert({
+        user_id: userProfile?.id,
+        feed_item_id: itemId,
+        interaction_type: 'claim',
+      })
+    } catch (err) {
+      console.error('Failed to accept route:', err)
+    }
   }, [supabase, userProfile])
 
   const handleLogisticsDecline = useCallback(async (itemId: string) => {
-    await supabase.from('feed_interactions').insert({
-      user_id: userProfile?.id,
-      feed_item_id: itemId,
-      interaction_type: 'discard',
-    })
+    try {
+      await supabase.from('feed_interactions').insert({
+        user_id: userProfile?.id,
+        feed_item_id: itemId,
+        interaction_type: 'discard',
+      })
+    } catch (err) {
+      console.error('Failed to decline route:', err)
+    }
   }, [supabase, userProfile])
 
   const handleBuildClaim = useCallback(async (itemId: string) => {
-    const item = items.find(i => i.id === itemId)
-    if (!item?.related_agreement_id) return
+    try {
+      const item = items.find(i => i.id === itemId)
+      if (!item?.related_agreement_id) return
 
-    await supabase
-      .from('agreements')
-      .update({ 
-        assigned_to: userProfile?.id,
-        status: 'active'
+      await supabase
+        .from('agreements')
+        .update({
+          assigned_to: userProfile?.id,
+          status: 'active'
+        })
+        .eq('id', item.related_agreement_id)
+
+      await supabase.from('feed_interactions').insert({
+        user_id: userProfile?.id,
+        feed_item_id: itemId,
+        interaction_type: 'claim',
       })
-      .eq('id', item.related_agreement_id)
-
-    await supabase.from('feed_interactions').insert({
-      user_id: userProfile?.id,
-      feed_item_id: itemId,
-      interaction_type: 'claim',
-    })
+    } catch (err) {
+      console.error('Failed to claim build task:', err)
+    }
   }, [items, supabase, userProfile])
 
   const loadMoreItems = useCallback(async () => {
     setIsLoading(true)
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('feed_items')
         .select(`
           *,
@@ -320,9 +358,13 @@ export function FeedContainer({ initialItems, doneItems = [], userProfile, isOnb
         .order('created_at', { ascending: false })
         .range(items.length, items.length + 9)
 
-      if (data) {
+      if (error) {
+        console.error('Failed to load more items:', error.message)
+      } else if (data) {
         setItems(prev => [...prev, ...data as FeedItem[]])
       }
+    } catch (err) {
+      console.error('Failed to load more items:', err)
     } finally {
       setIsLoading(false)
     }

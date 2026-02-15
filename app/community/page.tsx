@@ -10,18 +10,18 @@ export default async function CommunityPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Fetch top members
+  // Fetch top members by trust_points (correct field name)
   const { data: topMembers } = await supabase
     .from("profiles")
-    .select("*")
-    .order("trust_score", { ascending: false })
+    .select("id, display_name, avatar_url, trust_points, neighborhood_hub, is_distribution_hub")
+    .order("trust_points", { ascending: false })
     .limit(10)
 
-  // Fetch pickup hubs
-  const { data: pickupPoints } = await supabase
+  // Fetch distribution hubs (correct field name)
+  const { data: distributionHubs } = await supabase
     .from("profiles")
-    .select("*")
-    .eq("is_pickup_point", true)
+    .select("id, display_name, avatar_url, trust_points, neighborhood_hub, is_distribution_hub")
+    .eq("is_distribution_hub", true)
     .limit(6)
 
   // Fetch discussions
@@ -29,6 +29,7 @@ export default async function CommunityPage() {
     .from("feed_items")
     .select("*")
     .eq("feed_type", "discussion")
+    .eq("is_active", true)
     .order("created_at", { ascending: false })
     .limit(5)
 
@@ -43,6 +44,7 @@ export default async function CommunityPage() {
     .from("feed_items")
     .select("*")
     .eq("feed_type", "build")
+    .eq("is_active", true)
     .order("is_pinned", { ascending: false })
     .order("created_at", { ascending: false })
 
@@ -72,7 +74,7 @@ export default async function CommunityPage() {
         <CommunityPageClient
           userId={user?.id}
           topMembers={topMembers || []}
-          pickupPoints={pickupPoints || []}
+          distributionHubs={distributionHubs || []}
           discussions={discussions || []}
           agreements={agreements || []}
           buildTasks={buildTasks || []}

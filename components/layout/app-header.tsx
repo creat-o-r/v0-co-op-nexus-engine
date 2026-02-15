@@ -1,40 +1,40 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useState } from "react"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@/components/ui/dropdown-menu"
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "@/components/ui/sheet";
-import { Menu, Search, Bell, Leaf, User, Settings, LogOut, Home, ArrowLeftRight, Truck, Users } from "lucide-react";
-import type { Profile } from "@/lib/types/database";
+} from "@/components/ui/sheet"
+import { Menu, Search, Bell, Leaf, User, Settings, LogOut, Home, ArrowLeftRight, Truck, Users } from "lucide-react"
+import type { Profile } from "@/lib/types/database"
 
 interface AppHeaderProps {
-  user: Profile | null;
-  onSignOut?: () => void;
+  user: Profile | null
+  onSignOut?: () => void
 }
 
 export function AppHeader({ user, onSignOut }: AppHeaderProps) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const navItems = [
     { href: "/feed", label: "Feed", icon: Home },
     { href: "/orders", label: "Orders", icon: ArrowLeftRight },
     { href: "/logistics", label: "Routes", icon: Truck },
     { href: "/community", label: "Hub", icon: Users },
-  ];
+  ]
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -87,7 +87,7 @@ export function AppHeader({ user, onSignOut }: AppHeaderProps) {
                 <DropdownMenuContent align="end" className="w-56">
                   <div className="flex flex-col gap-1 p-2">
                     <p className="font-medium">{user.display_name || "Member"}</p>
-                    <p className="text-xs text-muted-foreground">Trust: {user.trust_score}</p>
+                    <p className="text-xs text-muted-foreground">Trust: {user.trust_points}</p>
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
@@ -146,5 +146,5 @@ export function AppHeader({ user, onSignOut }: AppHeaderProps) {
         </div>
       </div>
     </header>
-  );
+  )
 }

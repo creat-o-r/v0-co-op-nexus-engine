@@ -3,13 +3,12 @@
 import { useEffect, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Users, Shield, MapPin, MessageCircle, CheckCircle,
-  Star, Leaf, Hammer, Handshake, LayoutGrid, Truck, ClipboardCheck,
-  Package, ChevronRight, ShoppingCart,
+  Star, Hammer, Handshake, LayoutGrid, Truck, ClipboardCheck,
+  Package, ChevronRight,
 } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
@@ -23,11 +22,9 @@ interface ProfileRow {
   id: string
   display_name: string | null
   avatar_url: string | null
-  trust_score: number
+  trust_points: number
   neighborhood_hub: string | null
-  is_pickup_point: boolean
-  is_producer: boolean
-  location: string | null
+  is_distribution_hub: boolean
 }
 
 interface AgreementRow {
@@ -45,7 +42,7 @@ interface AgreementRow {
 interface Props {
   userId?: string
   topMembers: ProfileRow[]
-  pickupPoints: ProfileRow[]
+  distributionHubs: ProfileRow[]
   discussions: FeedItem[]
   agreements: AgreementRow[]
   buildTasks: FeedItem[]
@@ -80,20 +77,18 @@ type BuildTab = (typeof buildTabs)[number]["key"]
 /* ── Component ─────────────────────────────────────── */
 
 export function CommunityPageClient({
-  userId, topMembers, pickupPoints, discussions,
+  userId, topMembers, distributionHubs, discussions,
   agreements, buildTasks, claimedTasks, totalMembers, verifications,
 }: Props) {
   const searchParams = useSearchParams()
   const router = useRouter()
 
-  // Derive initial tab from URL
   const urlTab = searchParams.get("tab") as MainTab | null
   const urlAgreement = searchParams.get("agreement")
 
   const [activeTab, setActiveTab] = useState<MainTab>(urlTab && mainTabs.some(t => t.key === urlTab) ? urlTab : "members")
   const [buildFilter, setBuildFilter] = useState<BuildTab>("all")
 
-  // If ?tab=build&agreement=ID, jump to build tab and highlight
   useEffect(() => {
     if (urlTab === "build") {
       setActiveTab("build")
@@ -102,13 +97,11 @@ export function CommunityPageClient({
 
   const handleTabChange = (tab: MainTab) => {
     setActiveTab(tab)
-    // Update URL without full reload
     const params = new URLSearchParams()
     if (tab !== "members") params.set("tab", tab)
     router.replace(`/community${params.toString() ? `?${params}` : ""}`, { scroll: false })
   }
 
-  // Count agreements per type
   const agreementCounts: Record<string, number> = { all: agreements.length }
   for (const a of agreements) {
     agreementCounts[a.agreement_type] = (agreementCounts[a.agreement_type] || 0) + 1
@@ -143,7 +136,7 @@ export function CommunityPageClient({
               <MapPin className="h-4.5 w-4.5 text-primary" />
             </div>
             <div>
-              <p className="text-xl font-bold leading-none">{pickupPoints.length}</p>
+              <p className="text-xl font-bold leading-none">{distributionHubs.length}</p>
               <p className="text-[10px] text-muted-foreground mt-0.5">Hubs</p>
             </div>
           </CardContent>
@@ -211,23 +204,20 @@ export function CommunityPageClient({
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{member.display_name || "Member"}</p>
                     <div className="flex items-center gap-1.5">
-                      {member.is_producer && (
-                        <Badge variant="secondary" className="gap-0.5 text-[10px] px-1.5 py-0">
-                          <Leaf className="h-2.5 w-2.5" />
-                          Producer
-                        </Badge>
-                      )}
-                      {member.is_pickup_point && (
+                      {member.is_distribution_hub && (
                         <Badge variant="secondary" className="gap-0.5 text-[10px] px-1.5 py-0">
                           <MapPin className="h-2.5 w-2.5" />
                           Hub
                         </Badge>
                       )}
+                      {member.neighborhood_hub && (
+                        <span className="text-[10px] text-muted-foreground">{member.neighborhood_hub}</span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 text-primary shrink-0">
                     <Star className="h-3.5 w-3.5 fill-primary" />
-                    <span className="text-sm font-bold">{member.trust_score}</span>
+                    <span className="text-sm font-bold">{member.trust_points}</span>
                   </div>
                 </div>
               ))}
@@ -242,7 +232,7 @@ export function CommunityPageClient({
       {/* ── Hubs tab ─────────────────────────────── */}
       {activeTab === "hubs" && (
         <div className="grid gap-4 sm:grid-cols-2">
-          {pickupPoints.map((hub) => (
+          {distributionHubs.map((hub) => (
             <Card key={hub.id}>
               <CardContent className="flex items-center gap-3 py-4 px-4">
                 <Avatar className="h-10 w-10">
@@ -251,25 +241,25 @@ export function CommunityPageClient({
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm">{hub.display_name || "Hub"}</p>
-                  {hub.location && (
+                  {hub.neighborhood_hub && (
                     <p className="flex items-center gap-1 text-xs text-muted-foreground">
                       <MapPin className="h-3 w-3" />
-                      {hub.location}
+                      {hub.neighborhood_hub}
                     </p>
                   )}
                   <p className="flex items-center gap-1 text-xs text-primary mt-0.5">
                     <Shield className="h-3 w-3" />
-                    Trust: {hub.trust_score}
+                    Trust: {hub.trust_points}
                   </p>
                 </div>
               </CardContent>
             </Card>
           ))}
-          {pickupPoints.length === 0 && (
+          {distributionHubs.length === 0 && (
             <Card className="col-span-full">
               <CardContent className="py-12 text-center">
                 <MapPin className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
-                <p className="font-semibold">No pickup hubs yet</p>
+                <p className="font-semibold">No distribution hubs yet</p>
                 <p className="text-sm text-muted-foreground">Become a hub and help your neighbors!</p>
               </CardContent>
             </Card>
@@ -280,7 +270,6 @@ export function CommunityPageClient({
       {/* ── Build tab ────────────────────────────── */}
       {activeTab === "build" && (
         <div className="space-y-6">
-          {/* Build sub-tabs */}
           <div className="flex gap-1 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
             {buildTabs.map((tab) => {
               const count = agreementCounts[tab.key] || 0
@@ -311,7 +300,6 @@ export function CommunityPageClient({
             })}
           </div>
 
-          {/* Agreements list */}
           <AgreementsList
             agreements={agreements}
             userId={userId}
@@ -319,7 +307,6 @@ export function CommunityPageClient({
             highlightId={urlAgreement || undefined}
           />
 
-          {/* Build tasks (on All or Tasks sub-tab) */}
           {(buildFilter === "all" || buildFilter === "build_task") && buildTasks.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">

@@ -15,6 +15,7 @@ import {
   ChevronUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { MATCH_SCORE_MULTIPLIER, MATCH_SCORE_MAX } from '@/lib/constants'
 
 export interface MatchResult {
   match_id: string
@@ -186,7 +187,7 @@ export function MatchCard({ match, currentUserId, onPropose, onDismiss }: MatchC
               <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
                 <div
                   className="h-full bg-chart-3 rounded-full"
-                  style={{ width: `${Math.min(match.score * 10, 100)}%` }}
+                  style={{ width: `${Math.min(match.score * MATCH_SCORE_MULTIPLIER, MATCH_SCORE_MAX)}%` }}
                 />
               </div>
               <span className="text-[10px] font-medium text-chart-3">{match.score.toFixed(1)}</span>

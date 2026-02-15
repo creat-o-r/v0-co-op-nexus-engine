@@ -78,6 +78,8 @@ export interface FeedItem {
   tagged_products: string[]
   is_pinned: boolean
   is_active: boolean
+  is_multi_select?: boolean
+  build_metadata?: Record<string, number | string | boolean | null>
   created_at: string
   updated_at: string
   profile?: Profile

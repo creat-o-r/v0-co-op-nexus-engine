@@ -1,43 +1,35 @@
-import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { NextRequest, NextResponse } from 'next/server'
+import { getAuthContext, apiError } from '@/lib/api/helpers'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { supabase, user } = await getAuthContext()
+    if (!user) return apiError('Unauthorized', 401)
 
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const feedItemId = request.nextUrl.searchParams.get('feedItemId')
+    if (!feedItemId) return apiError('feedItemId is required', 400)
 
-    const feedItemId = request.nextUrl.searchParams.get("feedItemId")
-    if (!feedItemId) {
-      return NextResponse.json({ error: "feedItemId is required" }, { status: 400 })
-    }
-
-    // Fetch all responses for this scenario
     const { data: responses, error } = await supabase
-      .from("scenario_responses")
-      .select("response_type, selected_option")
-      .eq("feed_item_id", feedItemId)
+      .from('scenario_responses')
+      .select('response_type, selected_option')
+      .eq('feed_item_id', feedItemId)
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
+    if (error) return apiError(error.message, 500)
 
-    // Aggregate
-    const likeCount = responses?.filter(r => r.response_type === "like").length || 0
-    const discardCount = responses?.filter(r => r.response_type === "discard").length || 0
+    const likeCount = responses?.filter(r => r.response_type === 'like').length || 0
+    const discardCount = responses?.filter(r => r.response_type === 'discard').length || 0
     const totalCount = likeCount + discardCount
 
-    // Count per selected_option (for multi-option scenarios)
+    // Count per selected_option (handles comma-separated multi-select)
     const optionCounts: Record<string, number> = {}
     for (const r of responses || []) {
       if (r.selected_option) {
-        // Handle comma-separated multi-select
-        const options = r.selected_option.split(", ")
+        const options = r.selected_option.split(', ')
         for (const opt of options) {
-          optionCounts[opt] = (optionCounts[opt] || 0) + 1
+          const trimmed = opt.trim()
+          if (trimmed) {
+            optionCounts[trimmed] = (optionCounts[trimmed] || 0) + 1
+          }
         }
       }
     }
@@ -49,6 +41,6 @@ export async function GET(request: NextRequest) {
       optionCounts,
     })
   } catch {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return apiError('Internal server error', 500)
   }
 }

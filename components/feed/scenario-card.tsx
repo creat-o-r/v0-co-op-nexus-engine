@@ -43,8 +43,10 @@ export function ScenarioCard({ item, onLike, onDiscard, currentUserId, initialSe
 
   const multiSelect = useMemo(() => {
     const q = (item.scenario_question || '').toLowerCase()
-    return q.includes('select all') || q.includes('multi')
-  }, [item.scenario_question])
+    // Check for common multi-select indicators in the question text
+    return q.includes('select all') || q.includes('multi') || q.includes('choose all') || q.includes('pick all')
+      || item.is_multi_select === true
+  }, [item])
 
   const hasSelection = selectedOptions.length > 0 || (showOtherInput && otherText.trim().length > 0)
 

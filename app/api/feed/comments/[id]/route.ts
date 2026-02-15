@@ -1,47 +1,37 @@
-import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { NextRequest } from 'next/server'
+import { NextResponse } from 'next/server'
+import { getAuthContext, apiError } from '@/lib/api/helpers'
 
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const { supabase, user } = await getAuthContext()
+    if (!user) return apiError('Unauthorized', 401)
 
     const { id } = await params
 
     // Only allow deleting own comments
     const { data: comment } = await supabase
-      .from("feed_interactions")
-      .select("id, user_id, feed_item_id")
-      .eq("id", id)
-      .eq("interaction_type", "comment")
+      .from('feed_interactions')
+      .select('id, user_id, feed_item_id')
+      .eq('id', id)
+      .eq('interaction_type', 'comment')
       .single()
 
-    if (!comment) {
-      return NextResponse.json({ error: "Comment not found" }, { status: 404 })
-    }
-
-    if (comment.user_id !== user.id) {
-      return NextResponse.json({ error: "Not authorized to delete this comment" }, { status: 403 })
-    }
+    if (!comment) return apiError('Comment not found', 404)
+    if (comment.user_id !== user.id) return apiError('Not authorized to delete this comment', 403)
 
     const { error } = await supabase
-      .from("feed_interactions")
+      .from('feed_interactions')
       .delete()
-      .eq("id", id)
+      .eq('id', id)
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
+    if (error) return apiError(error.message, 500)
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, deletedId: id })
   } catch {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return apiError('Internal server error', 500)
   }
 }

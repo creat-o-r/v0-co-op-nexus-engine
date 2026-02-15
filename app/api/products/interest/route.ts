@@ -1,65 +1,73 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { NextRequest } from 'next/server'
+import { NextResponse } from 'next/server'
+import { getAuthContext, apiError } from '@/lib/api/helpers'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { supabase, user } = await getAuthContext()
+    if (!user) return apiError('Unauthorized', 401)
 
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const body = await request.json()
+    const { productId, quantity, notes } = body
+
+    if (!productId || !quantity || typeof quantity !== 'number' || quantity <= 0) {
+      return apiError('productId and a positive quantity are required', 400)
     }
 
-    const body = await request.json();
-    const { productId, quantity, notes } = body;
+    // Look up the product to get its name and unit
+    const { data: product } = await supabase
+      .from('products')
+      .select('id, name, unit')
+      .eq('id', productId)
+      .single()
 
-    if (!productId || !quantity) {
-      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    if (!product) {
+      return apiError('Product not found', 404)
     }
 
-    // Check for existing interest
+    // Check for existing need for this product
     const { data: existing } = await supabase
-      .from("user_needs")
-      .select("id, quantity_needed")
-      .eq("user_id", user.id)
-      .eq("product_id", productId)
-      .single();
+      .from('user_needs')
+      .select('id, quantity')
+      .eq('user_id', user.id)
+      .eq('product_id', productId)
+      .single()
 
     if (existing) {
       // Update existing need
       const { error } = await supabase
-        .from("user_needs")
+        .from('user_needs')
         .update({
-          quantity_needed: quantity,
-          notes,
+          quantity,
+          notes: notes || null,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", existing.id);
+        .eq('id', existing.id)
 
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
+      if (error) return apiError(error.message, 500)
 
-      return NextResponse.json({ success: true, action: "updated" });
+      return NextResponse.json({ success: true, action: 'updated' })
     }
 
     // Create new user need
     const { error } = await supabase
-      .from("user_needs")
+      .from('user_needs')
       .insert({
         user_id: user.id,
         product_id: productId,
-        quantity_needed: quantity,
-        notes,
-        status: "seeking",
-      });
+        product_name: product.name,
+        quantity,
+        unit: product.unit,
+        notes: notes || null,
+        priority: 'normal',
+        frequency: 'once',
+        is_active: true,
+      })
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    if (error) return apiError(error.message, 500)
 
-    return NextResponse.json({ success: true, action: "created" });
+    return NextResponse.json({ success: true, action: 'created' })
   } catch {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return apiError('Internal server error', 500)
   }
 }

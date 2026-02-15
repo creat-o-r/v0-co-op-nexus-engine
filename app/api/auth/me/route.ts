@@ -1,13 +1,27 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { getAuthContext } from '@/lib/api/helpers'
 
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  try {
+    const { supabase, user } = await getAuthContext()
 
-  if (!user) {
-    return NextResponse.json({ id: null }, { status: 200 })
+    if (!user) {
+      return NextResponse.json({ id: null })
+    }
+
+    // Fetch profile data alongside auth info
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('display_name, neighborhood_hub, trust_points, avatar_url, talents')
+      .eq('id', user.id)
+      .single()
+
+    return NextResponse.json({
+      id: user.id,
+      email: user.email,
+      profile: profile || null,
+    })
+  } catch {
+    return NextResponse.json({ id: null })
   }
-
-  return NextResponse.json({ id: user.id, email: user.email })
 }
